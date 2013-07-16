@@ -1,0 +1,702 @@
+Password Analysis and Cracking Kit by Peter Kacherginsky (iphelix)
+==================================================================
+
+PACK (Password Analysis and Cracking Toolkit) is a collection of utilities developed to aid in analysis of password lists and enhancing cracking of passwords using smart rule generation. It can be used to reverse word mangling rules, generate source words and optimize password masks for the Hashcat family of tools.
+
+NOTE: The toolkit itself is not able to crack passwords, but instead designed to make operation of password crackers more efficient.
+
+Rules Analysis
+==================
+
+`rulegen.py` implements password analysis and rule generation for the Hashcat password cracker as described in the [Automatic Password Rule Analysis and Generation](http://thesprawl.org/research/automatic-password-rule-analysis-generation/) paper. Please review this document for detailed discussion on the theory of rule analysis and generation.
+
+Reversing source words and word mangling rules from already cracked passwords can be very effective in performing attacks against still encrypted hashes. By continuously recycling/expanding generated rules and words you may be able to crack a greater number of passwords.
+
+There are several prerequisites for effective use of `rulegen.py`. The tool utilizes Enchant spell-checking library to interface with a number of spell-checking engines such as Aspell, MySpell, etc. You must install these tools prior to the tool use. It is also critical to install dictionaries for whatever spell-checking engine you end up using (alternatively it is possible to use a custom wordlist). You may also need to install Enchant if it is not already installed on your system. At last, I have bundled PyEnchant for convenience which should interface directly with Enchant's shared libraries; however, should there be any issues, simply remove the bundled 'enchant' directory and install PyEnchant for your distribution.
+
+NOTE: Tested and works by default on Backtrack 5 R3
+
+For additional details on specific Hashcat rule syntax see [Hashcat Rule Based Attack](http://hashcat.net/wiki/doku.php?id=rule_based_attack).
+
+Analyzing a Single Password
+-------------------------------
+
+The most basic use of `rulegen.py` involves analysis of a single password to automatically detect rules. Let's detect rules and a source word used to generate a sample password `P@55w0rd123`:
+
+    $ python rulegen.py --verbose --password P@55w0rd123
+                           _ 
+         RuleGen 0.0.1    | |
+          _ __   __ _  ___| | _
+         | '_ \ / _` |/ __| |/ /
+         | |_) | (_| | (__|   < 
+         | .__/ \__,_|\___|_|\_\
+         | |                    
+         |_| iphelix@thesprawl.org
+
+
+    [*] Using Enchant 'aspell' module. For best results please install
+        'aspell' module language dictionaries.
+    [*] Saving rules to analysis.rule
+    [*] Saving words to analysis.word
+    [*] Press Ctrl-C to end execution and generate statistical analysis.
+    [*] Analyzing password: P@55w0rd123
+    [+] Password => sa@ ss5 so0 $1 $2 $3 => P@55w0rd123
+    [*] Finished analysis in 0.00 seconds
+
+There are several flags that we have used for this example:
+
+  * --password - specifies a single password to analyze.
+  * --verbose - prints out verbose information such as generated rules and performance statistics.
+
+As noted in the program output, generated rules and source words were saved in `analysis.rule` and `analysis.word` files respectively:
+
+    $ cat analysis.rule 
+    sa@ ss5 so0 $1 $2 $3
+    $ cat analysis.word
+    Password
+
+Notice that these two files contain duplicate data. This will come in handy once you start processing large password lists and perform statistical analysis on generated words. 
+
+Processing password files is covered in a section below; however, let's first discuss some of the available fine tuning options using a single password as an example.
+
+Specifying output basename
+------------------------------
+
+`rulegen.py` saves output files using the 'analysis' basename by default. You can change file basename with the `--basename` flag as follows:
+
+    $ python rulegen.py --verbose --basename test --password P@55w0rd123
+                           _ 
+         RuleGen 0.0.1    | |
+          _ __   __ _  ___| | _
+         | '_ \ / _` |/ __| |/ /
+         | |_) | (_| | (__|   < 
+         | .__/ \__,_|\___|_|\_\
+         | |                    
+         |_| iphelix@thesprawl.org
+
+
+    [*] Using Enchant 'aspell' module. For best results please install
+        'aspell' module language dictionaries.
+    [*] Saving rules to test.rule
+    [*] Saving words to test.word
+    ...
+
+Spell-checking provider
+---------------------------
+
+Notice that we are using the `aspell` Enchant module for source word detection. The exact spell-checking engine can be changed using the `--provider` flag as follows:
+
+    $ python rulegen.py --verbose --provider myspell --password P@55w0rd123
+                         _ 
+         RuleGen 0.0.1    | |
+          _ __   __ _  ___| | _
+         | '_ \ / _` |/ __| |/ /
+         | |_) | (_| | (__|   < 
+         | .__/ \__,_|\___|_|\_\
+         | |                    
+         |_| iphelix@thesprawl.org
+
+
+    [*] Using Enchant 'myspell' module. For best results please install
+        'myspell' module language dictionaries.
+    ...
+
+NOTE: Provider engine priority can be specified using a comma-separated list (e.g. --provider aspell,myspell).
+
+Forcing source word
+-----------------------
+
+The use of the source word detection engine can be completely disabled by specifying a source word with the `--word` flag:
+
+    $ python rulegen.py -q --verbose --word word --password P@55w0rd123
+    [*] Analyzing password: P@55w0rd123
+    [+] word => ^5 ^5 ^@ ^P so0 $1 $2 $3 => P@55w0rd123
+    [*] Finished analysis in 0.00 seconds
+
+By specifying different source words you can have a lot of fun experimenting with the rule generation engine.
+
+Defining Custom Dictionary
+------------------------------
+
+Inevitably you will come across a point where generating rules using the standard spelling-engine wordlist is no longer sufficient. You can specify a custom wordlist using the `--wordlist` flag. This is particularly useful when reusing source words from a previous analysis session:
+
+    $ python rulegen.py -q --verbose --wordlist rockyou-top100.word --password ap55w0rd
+    [*] Using Enchant 'Personal Wordlist' module. For best results please install
+        'Personal Wordlist' module language dictionaries.
+    [*] Analyzing password: ap55w0rd
+    [!] password => {rule length suboptimal: 5 (3)} => ap55w0rd
+    [!] password => {rule length suboptimal: 5 (3)} => ap55w0rd
+    [!] password => {rule length suboptimal: 5 (3)} => ap55w0rd
+    [!] password => {rule length suboptimal: 5 (3)} => ap55w0rd
+    [!] password => {rule length suboptimal: 4 (3)} => ap55w0rd
+    [!] password => {rule length suboptimal: 4 (3)} => ap55w0rd
+    [+] password => k ss5 o50 => ap55w0rd
+    [*] Finished analysis in 0.00 seconds
+
+Notice that there were multiple valid rules to generate the password `ap55w0rd`; however, only the most optimal rule (based on total rule count) was selected. There may be multiple "optimal" rules produced as long as they all have the same rule length.
+
+Generating Suboptimal Rules and Words
+-----------------------------------------
+
+While `rulegen.py` attempts to generate and record only the best source words and passwords, there may be cases when you are interested in more results. Use `--morewords` and `--morerules` flags to generate words and rules which may exceed optimal edit distance:
+
+    $ python rulegen.py -q --verbose --password \$m0n3y\$ --morerules --morewords
+    [*] Using Enchant 'aspell' module. For best results please install
+        'aspell' module language dictionaries.
+    [*] Analyzing password: $m0n3y$
+    [+] money => ^$ so0 se3 $$ => $m0n3y$
+    [+] Mooney => sM$ o1m so0 se3 $$ => $m0n3y$
+    [+] mine => ^$ si0 se3 $y $$ => $m0n3y$
+    [+] mine => ^$ si0 i43 o5y $$ => $m0n3y$
+    [+] mine => ^$ si0 i43 i5y o6$ => $m0n3y$
+    [+] Monet => sM$ o1m i20 se3 o5y $$ => $m0n3y$
+    [+] Monet => sM$ i1m so0 se3 o5y $$ => $m0n3y$
+    [+] Monet => ^$ l so0 se3 o5y $$ => $m0n3y$
+    [+] Monet => sM$ o1m i20 se3 i5y o6$ => $m0n3y$
+    [+] Monet => sM$ i1m so0 se3 i5y o6$ => $m0n3y$
+    [+] Monet => ^$ l so0 se3 i5y o6$ => $m0n3y$
+    [+] Monet => sM$ o1m i20 i43 o5y o6$ => $m0n3y$
+    [+] Monet => sM$ i1m so0 i43 o5y o6$ => $m0n3y$
+    [+] Monet => ^$ l so0 i43 o5y o6$ => $m0n3y$
+    [+] moneys => ^$ so0 se3 o6$ => $m0n3y$
+    [*] Finished analysis in 0.00 seconds
+
+It is possible to further expand generated words using `--maxworddist` and `--maxwords` flags. Similarly, you can produce more rules using `--maxrulelen` and `--maxrules` flags.
+
+Disabling Advanced Engines
+------------------------------
+
+`rulegen.py` includes a number of advanced engines to generate better quality words and rules. It is possible to disable them to observe the difference (or if they are causing issues) using `--simplewords` and `--simplerules` flags. Let's observe how both source words and rules change with these flags on:
+
+    $ python rulegen.py -q --hashcat --verbose --password \$m0n3y\$ --simplewords --simplerules
+    [*] Using Enchant 'aspell' module. For best results please install
+        'aspell' module language dictionaries.
+    [*] Analyzing password: $m0n3y$
+    [-] MN => {best distance exceeded: 7 (4)} => $m0n3y$
+    [+] many => i0$ o20 i43 i6$ => $m0n3y$
+    [+] mingy => i0$ o20 o43 i6$ => $m0n3y$
+    [+] money => i0$ o20 o43 i6$ => $m0n3y$
+    [*] Finished analysis in 0.01 seconds
+
+Notice the quality of generated words was reduced significantly with words like 'MN', 'many' and 'mingy' having little relationship to the actual source word 'money'. At the same time, generated rules were reduced to simple insertions, deletions and replacements.
+
+Processing password lists
+-----------------------------
+
+Now that you have mastered all of the different flags and switches, we can attempt to generate words and rules for a collection of passwords. Let's generate a text file `korelogic.txt` containing the following fairly complex test passwords:
+
+    &~defcon
+    '#(4)\
+    August19681
+    '&a123456
+    10-D'Ann
+    ~|Bailey
+    Krist0f3r
+    f@cebOOK
+    Nuclear$(
+    zxcvbn2010!
+    13Hark's
+    NjB3qqm
+    Sydney93?
+    antalya%]
+    Annl05de
+    ;-Fluffy
+
+Now let's observe `rulegen.py` analysis by simply specifying the password file as the first argument:
+
+    $ python rulegen.py korelogic.txt 
+                           _ 
+         RuleGen 0.0.1    | |
+          _ __   __ _  ___| | _
+         | '_ \ / _` |/ __| |/ /
+         | |_) | (_| | (__|   < 
+         | .__/ \__,_|\___|_|\_\
+         | |                    
+         |_| iphelix@thesprawl.org
+
+
+    [*] Using Enchant 'aspell' module. For best results please install
+        'aspell' module language dictionaries.
+    [*] Saving rules to analysis.rule
+    [*] Saving words to analysis.word
+    [*] Press Ctrl-C to end execution and generate statistical analysis.
+    [*] Analyzing passwords file: testpasswd/korelogic.txt:
+    [!] '#(4)\ => {skipping alpha less than 25%} => '#(4)\
+    [!] '&a123456 => {skipping alpha less than 25%} => '&a123456
+    [*] Finished processing 16 passwords in 0.03 seconds at the rate of 533.33 p/sec
+    [*] Analyzed 14 passwords (87.50%)
+    [-] Skipped 0 all numeric passwords (0.00%)
+    [-] Skipped 2 passwords with less than 25% alpha characters (14.29%)
+    [-] Skipped 0 passwords with non ascii characters (0.00%)
+
+    [*] Top 10 word statistics
+    [+] Anatolia - 1 (3.33%)
+    [+] xxxvii - 1 (3.33%)
+    [+] Nuclear - 1 (3.33%)
+    [+] defcon - 1 (3.33%)
+    [+] Sydney - 1 (3.33%)
+    [+] Kristi - 1 (3.33%)
+    [+] August - 1 (3.33%)
+    [+] Annalist - 1 (3.33%)
+    [+] xxxv - 1 (3.33%)
+    [+] Facebook - 1 (3.33%)
+    [*] Saving Top 100 words in analysis-top100.word
+
+    [*] Top 10 rule statistics
+    [+] ^3 ^1 o4r - 2 (3.51%)
+    [+] i61 i79 i86 i98 oA1 - 2 (3.51%)
+    [+] se0 i6f i73 o8r - 1 (1.75%)
+    [+] i3a i5y o6a i7% o8] - 1 (1.75%)
+    [+] $1 $9 $6 $8 $1 - 1 (1.75%)
+    [+] i50 o6f sn3 o8r - 1 (1.75%)
+    [+] i61 i79 i86 sa8 $1 - 1 (1.75%)
+    [+] i50 i6f i73 o8r - 1 (1.75%)
+    [+] ^- ^; - 1 (1.75%)
+    [+] i61 i79 sa6 $8 $1 - 1 (1.75%)
+    [*] Saving Top 100 rules in analysis-top100.rule
+
+    [*] Top 10 password statistics
+    [+] Annl05de - 1 (7.14%)
+    [+] Krist0f3r - 1 (7.14%)
+    [+] 10-D'Ann - 1 (7.14%)
+    [+] f@cebOOK - 1 (7.14%)
+    [+] Nuclear$( - 1 (7.14%)
+    [+] 13Hark's - 1 (7.14%)
+    [+] ;-Fluffy - 1 (7.14%)
+    [+] &~defcon - 1 (7.14%)
+    [+] Sydney93? - 1 (7.14%)
+    [+] antalya%] - 1 (7.14%)
+    [*] Saving Top 100 passwords in analysis-top100.password
+
+Using all default settings we were able to produce several high quality rules. In addition to the normally generated unsorted and not uniqued 'analysis.rule' and 'analysis.word' files, processing multiple passwords produces Top 10 statistics for words, rules and passwords (displayed in the output) and Top 100 statistics saved in 'analysis-top100.rule', 'analysis-top100.word' and 'analysis-top100.password' files.
+
+Notice that several passwords such as '#(4)\ and '&a123456 were skipped because they do not have sufficient characteristics to be processed. Other than alpha character count, the program will skip all numeric passwords and passwords containing non-ASCII characters. The latter is due to a bug in the Enchant engine which I hope to fix in the future thus allowing word processing of many languages.
+
+Debugging rules
+--------------------
+
+There may be situations where you run into issues generating rules for the Hashcat password cracker. `rulegen.py` includes the `--hashcat` flag to validate generated words and rules using hashcat itself running in --stdout mode. In order for this mode to work correctly, you must download the latest version of hashcat-cli and edit the `HASHCAT_PATH` variable in the source. For example, at the time of this writing I have placed the hashcat-0.42 folder in the PACK directory and defined `HASHCAT_PATH` as 'hashcat-0.42/'.
+
+You can also observe the inner workings of the rule generation engine with the `--debug` flag. Don't worry about messages of certain rule failings, this is the result of the halting problem solver trying to find an optimal and valid solution.
+
+Have fun generating rules!
+
+
+Masks Analysis
+==================
+
+The following tools implement password analysis and mask generation for the Hashcat password cracker. For additional details see [Hashcat Mask Attack](http://hashcat.net/wiki/doku.php?id=mask_attack) Wiki page.
+
+In all of the examples, a standard hashcat notation to represent different character sets is used:
+
+    ?l - lowercase characters
+    ?u - uppercase characters
+    ?d - digits
+    ?s - special characters
+
+StatsGen
+------------
+
+Before we can begin using the toolkit we must establish a selection criteria for the sample input. Since we are looking to analyze the way people create their passwords, we must obtain as large of a list of leaked passwords as possible. One such excellent list is based on RockYou.com compromise. This list both provides large and diverse enough sample that it can be used as a good estimate for common passwords used by similar sites (e.g. social networking). The analysis obtained from this list may not work for organizations with specific password policies (e.g. 8 characters, minimum digit and special character requirements, etc.). As such, selecting sample input should be as close to your target as possible. In addition, try to avoid obtaining lists based on already cracked passwords as it will generate statistics skewed toward the type of passwords that could be cracked and not the overall sample.
+
+In the example below, we will use rockyou.txt containing approximately 14 million passwords. Launch `statsgen.py` with the following command line:
+
+    $ python statsgen.py rockyou.txt
+
+Below is the output from the above command:
+
+    [*] Analyzing dictionary: rockyou.txt
+    [+] Analyzing 100% (14344391/14344391) passwords
+        NOTE: Statistics below is relative to the number of analyzed passwords, not total number of passwords
+
+    [*] Line Count Statistics...
+    [+]                         8: 20% (2966004)
+    [+]                         7: 17% (2506264)
+    [+]                         9: 15% (2191000)
+    [+]                        10: 14% (2013690)
+    [+]                         6: 13% (1947858)
+    [+]                        11: 06% (865973)
+    [+]                        12: 03% (555333)
+    [+]                        13: 02% (364169)
+    [+]                         5: 01% (259174)
+    [+]                        14: 01% (248514)
+    [+]                        15: 01% (161181)
+
+    [*] Mask statistics...
+    [+]               stringdigit: 37% (5339715)
+    [+]                 allstring: 28% (4115881)
+    [+]                  alldigit: 16% (2346842)
+    [+]                 othermask: 05% (731240)
+    [+]               digitstring: 04% (663975)
+    [+]         stringdigitstring: 03% (450753)
+    [+]       stringspecialstring: 01% (204494)
+    [+]        stringspecialdigit: 01% (167826)
+    [+]             stringspecial: 01% (147874)
+    [+]          digitstringdigit: 00% (130518)
+    [+]      specialstringspecial: 00% (25100)
+    [+]             specialstring: 00% (14410)
+    [+]                allspecial: 00% (5763)
+
+    [*] Charset statistics...
+    [+]             loweralphanum: 42% (6075055)
+    [+]                loweralpha: 25% (3726656)
+    [+]                   numeric: 16% (2346842)
+    [+]      loweralphaspecialnum: 03% (472673)
+    [+]             upperalphanum: 02% (407436)
+    [+]             mixedalphanum: 02% (382246)
+    [+]         loweralphaspecial: 02% (381095)
+    [+]                upperalpha: 01% (229893)
+    [+]                mixedalpha: 01% (159332)
+    [+]      mixedalphaspecialnum: 00% (53240)
+    [+]         mixedalphaspecial: 00% (49633)
+    [+]      upperalphaspecialnum: 00% (27732)
+    [+]         upperalphaspecial: 00% (26795)
+    [+]                   special: 00% (5763)
+
+    [*] Advanced Mask statistics...
+    [+]          ?l?l?l?l?l?l?l?l: 04% (688053)
+    [+]              ?l?l?l?l?l?l: 04% (601257)
+    [+]            ?l?l?l?l?l?l?l: 04% (585093)
+    [+]        ?l?l?l?l?l?l?l?l?l: 03% (516862)
+    [+]            ?d?d?d?d?d?d?d: 03% (487437)
+    [+]      ?d?d?d?d?d?d?d?d?d?d: 03% (478224)
+    [+]          ?d?d?d?d?d?d?d?d: 02% (428306)
+    [+]          ?l?l?l?l?l?l?d?d: 02% (420326)
+    [+]      ?l?l?l?l?l?l?l?l?l?l: 02% (416961)
+    [+]              ?d?d?d?d?d?d: 02% (390546)
+    [+]        ?d?d?d?d?d?d?d?d?d: 02% (307540)
+    [+]            ?l?l?l?l?l?d?d: 02% (292318)
+    [+]        ?l?l?l?l?l?l?l?d?d: 01% (273640)
+    [+]    ?l?l?l?l?l?l?l?l?l?l?l: 01% (267742)
+    [+]          ?l?l?l?l?d?d?d?d: 01% (235364)
+    [+]              ?l?l?l?l?d?d: 01% (215079)
+    [+]      ?l?l?l?l?l?l?l?l?d?d: 01% (213117)
+    [+]            ?l?l?l?l?l?l?d: 01% (193110)
+    [+]          ?l?l?l?l?l?l?l?d: 01% (189855)
+    [+]  ?l?l?l?l?l?l?l?l?l?l?l?l: 01% (189360)
+    [+]            ?l?l?l?d?d?d?d: 01% (178308)
+    [+]        ?l?l?l?l?l?d?d?d?d: 01% (173560)
+    [+]      ?l?l?l?l?l?l?d?d?d?d: 01% (160596)
+    [+]        ?l?l?l?l?l?l?l?l?d: 01% (160061)
+    [+]          ?l?l?l?l?l?d?d?d: 01% (152406)
+
+
+Here is what we can immediately learn from the above list:
+
+ *  The majority of passwords are 6-10 characters
+ *  The majority of passwords follow masks of the form "string followed by digits", "all string", and "all digits".
+ *  The majority of passwords use lower alphanumeric and lower alpha character sets.
+
+The last section, "Advanced Mask Statistics", contains the actual masks matching the most frequent passwords. Masks are generated by attempting to find the minimum matching set of regular expressions that would match that string.
+
+Individual symbols can be interpreted as follows:
+
+    ?l - a single lowercase character
+    ?u - a single uppercase character
+    ?d - a single digit
+    ?s - a single special character
+
+For example, the very first mask, "?l?l?l?l?l?l?l?l", will match all of the lowercase alpha passwords. Given the sample size you will be able to crack approximately 4% of passwords. However, after generating the initial output, you may be interested in using filters to narrow down on password data.
+
+Let's see how RockYou users tend to select their passwords using the "stringdigit" mask (a string followed by numbers):
+
+    $ python statsgen.py -m stringdigit rockyou.txt
+
+    [*] Analyzing dictionary: rockyou.txt
+    [+] Analyzing 37% (5339715/14344391) passwords
+        NOTE: Statistics below is relative to the number of analyzed passwords, not total number of passwords
+
+    [*] Line Count Statistics...
+    [+]                         8: 23% (1267292)
+    [+]                         7: 18% (981472)
+    [+]                         9: 17% (940000)
+    [+]                        10: 14% (750966)
+    [+]                         6: 11% (619001)
+    [+]                        11: 05% (294874)
+    [+]                        12: 03% (175879)
+    [+]                        13: 01% (103048)
+    [+]                        14: 01% (65959)
+
+    [*] Mask statistics...
+    [+]               stringdigit: 100% (5339715)
+
+    [*] Charset statistics...
+    [+]             loweralphanum: 88% (4720336)
+    [+]             upperalphanum: 06% (325943)
+    [+]             mixedalphanum: 05% (293436)
+
+    [*] Advanced Mask statistics...
+    [+]          ?l?l?l?l?l?l?d?d: 07% (420326)
+    [+]            ?l?l?l?l?l?d?d: 05% (292318)
+    [+]        ?l?l?l?l?l?l?l?d?d: 05% (273640)
+    [+]          ?l?l?l?l?d?d?d?d: 04% (235364)
+    [+]              ?l?l?l?l?d?d: 04% (215079)
+    [+]      ?l?l?l?l?l?l?l?l?d?d: 03% (213117)
+    [+]            ?l?l?l?l?l?l?d: 03% (193110)
+    [+]          ?l?l?l?l?l?l?l?d: 03% (189855)
+    [+]            ?l?l?l?d?d?d?d: 03% (178308)
+    [+]        ?l?l?l?l?l?d?d?d?d: 03% (173560)
+    [+]      ?l?l?l?l?l?l?d?d?d?d: 03% (160596)
+    [+]        ?l?l?l?l?l?l?l?l?d: 02% (160061)
+    [+]          ?l?l?l?l?l?d?d?d: 02% (152406)
+    [+]        ?l?l?l?l?l?l?d?d?d: 02% (132220)
+    [+]      ?l?l?l?l?l?l?l?l?l?d: 02% (129833)
+    [+]              ?l?l?l?l?l?d: 02% (114739)
+    [+]            ?l?l?l?l?d?d?d: 02% (111221)
+    [+]              ?l?l?d?d?d?d: 01% (98305)
+    [+]              ?l?l?l?d?d?d: 01% (98189)
+    [+]      ?l?l?l?l?l?l?l?d?d?d: 01% (87613)
+    [+]    ?l?l?l?l?l?l?l?l?l?d?d: 01% (82655)
+    [+]    ?l?l?l?l?l?l?l?d?d?d?d: 01% (70915)
+    [+]            ?l?d?d?d?d?d?d: 01% (54888)
+
+
+The very top of the output specifies what percentage of total passwords was analyzed. In this case, by cracking only passwords matching the "stringdigit" mask it is only possible to recover about 37% of the total set.
+
+Next, it appears that only 11% of this password type use anything other than lowercase. So it would be smart to concentrate on only lowercase strings matching this mask. At last, in the "Advanced Mask Statistics" section we can see that the majority of "stringdigit" passwords consist of a string with two or four digits following it.
+
+With the information gained from the above output, we can begin creating a mental image of target users' password generation patterns.
+
+There are a few other filters available for password length, mask, and character sets:
+
+Length: -l [integer]
+
+**Mask:** -m [numeric, loweralpha, upperalpha, mixedalpha, loweralphanum, upperalphanum, mixedaphanum, special, loweralphaspecial, upperalphaspecial, mixedalphaspecial, loweraphaspecialnum, upperalphaspecialnum, mixedalphaspecialnum]
+
+**Character sets:** -c [alldigit, allstring, stringdigit, digitstring, digitstringdigit, stringdigitstring, allspecial, stringspecial, specialstring, stringspecialstring, stringspecialdigit, specialstringspecial]
+
+*DEVELOPERS: You can edit respective lists on the very top of the source files and add regular expressions for whatever mask or character set you can imagine.*
+
+While the "Advanced Mask Section" only displays patterns matching greater than 1% of all passwords, you can obtain and save a full list of password masks matching a given dictionary by using the following command:
+
+$ python statsgen.py -o rockyou.csv rockyou.txt
+
+All of the password masks and their frequencies were saved into the specified file in CSV format. Naturally, you can provide filters to only generate masks file matching custom filters. The output file can be used as an input to MaskGen tool covered in the next section.
+
+MaskGen
+-----------
+
+While analyzing passwords using `DictGen` can be both revealing and exciting, it is simply not feasible for larger data sets. MaskGen will analyze the masks output file produced by DictGen and help you generate optimal password mask collection for input to the Hashcat password cracker.
+
+Let's run MaskGen with only DictGen's output as an argument:
+
+    $ python maskgen.py rockyou.csv
+
+    [*] [0] [11/14344391] [0.00] [0d|0h|0m|0s] ? 
+    [*] [1] [49/14344391] [0.00] [0d|0h|0m|0s] ?s?u?l?d 
+    [*] [2] [340/14344391] [0.00] [0d|0h|0m|0s] ?s?u?l?d ?s?u?l?d 
+    [*] [3] [2479/14344391] [0.00] [0d|0h|0m|0s] ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [4] [18015/14344391] [0.00] [0d|0h|0m|0s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [5] [259174/14344391] [1.00] [0d|0h|0m|7s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [6] [1947858/14344391] [13.00] [0d|0h|12m|735s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [7] [2506264/14344391] [17.00] [0d|19h|1163m|69833s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [8] [2966004/14344391] [20.00] [76d|1842h|110570m|6634204s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d 
+    [*] [9] [2191000/14344391] [15.00] [7294d|175069h|10504156m|630249409s] ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d
+
+    ...
+    [*] Coverage is %100 (14344391/14344391)
+    [*] Total time 1754409989919144353064355175042468812368733249495616893327070104
+    8211232752070650397369740269713581215815201614225211442387866496572012147724920
+    4649812938136306665865356654151858255534645195728557246448055491199506753532407
+    0837796021192337530275757511267739149674126051965467434111830202528596251368154
+    7242960405598417380173912831468583249522597950717975278703858956758951666222598
+    6032208513767643382460723235228659294580495141287225869341138204996227078055906
+    67374828225147228141265693827036d|421058397580594644735445242010192514968495979
+    8789480543984968251570695860496956095368737664731259491795648387414050746173087
+    9591772829154539809115955105152713599807685596996445981328314846974853739147533
+    3178878816208477777001071045086161007266181802704257395921790252471712184186839
+    2486068631003283571338310497343620171241739079552459979885423508172314066888926
+    1496221483998934236647730043304234411790573576454878230699318833908934208641873
+    1691990944987334176016995877403533475390376651848886h|2526350385483567868412671
+    4520611550898109758792736883263909809509424175162981736572212425988387556950773
+    8903244843044770385277550636974927238854695730630916281598846113581978675887969
+    8890818491224348851999073272897250866662006426270516966043597090816225544375530
+    7415148302731051210354916411786019701428029862984061721027450434477314759879312
+    5410490338844013335568977328903993605419886380259825406470743441458729269384195
+    91300345360525185123901519456699240050561019752644212008523422599110933198m|151
+    5810231290140721047602871236693053886585527564212995834588570565450509778904194
+    3327455593032534170464334194690582686223116653038218495634331281743837854976895
+
+
+Ignore the crazy long last line for a minute and let's take a look at line with prefix of [5]. Here is how it can be interpreted:
+
+    [*] [5] [259174/14344391] [1.00] [0d|0h|0m|7s] ?s?u?l?d ?s?u?l?d ...
+     \          \             \          \           \
+      \          \             \          \           \ matching mask
+       \          \             \          \
+        \          \             \          \ time to crack
+         \          \             \ 
+          \          \             \ percent coverage from sample
+           \          \
+            \          \ total number of matching passwords
+             \
+              \ password length
+          
+NOTE: day, hour, minute, and seconds parameters are independent of each other. [0d|0h|1m|60s] means the total runtime is 60 seconds and not 1 minute 60 seconds. You will find it useful when doing calculations and converting back and forth.
+                   
+The information contained in the above file will present you with an ordered list of masks together with how long it will take to crack all passwords matching this mask (default speed is 1,000,000,000 keys/sec), the percentage coverage of the total sample and total count of matching passwords.
+
+In the above example "?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d ?s?u?l?d" mask shows that every single character in every position has the mask of "?s?u?l?d" or every single character. This line is suggesting that in order to crack every single password of length 5, you must attempt to crack entire character set for each position (or complete bruteforce) and it will take you about 7 seconds to do that.
+
+NOTE: There is a bit of black magic going on in the background to generate masks for a specific password length. As you may have observed passwords become more complex by adding extra characters (exponential growth) as opposed to just increasing the character set in any given slot. As such, I have chosen to generate masks based on the length of passwords that they match. Combined masks are generated by looking at all masks of a given length and combining them together. For example masks ?l?l?l and ?l?l?d matching three character passwords will be combined to "?l ?l ?l?d" to match all passwords represented by both masks. This combined mask is less effective than taking each component mask separately; however, I will show you how to extract these components shortly.
+
+The last (and really long) line specifies the total number of days/hours/minutes/seconds to crack every single password using every single mask in the database. The time value is such a huge number, because we are virtually performing a bruteforcing attack on all password lengths. What we are going to try to do is to optimize masks to crack the maximum number of password in minimum time.
+
+You should almost never run MaskGen with no parameters (except to remind yourself why straight bruteforcing is bad). Let's use some of the data gained from StagsGen to generate a set of masks that will give us 50% of passwords within some reasonable time.      
+
+We have already collected statistical data about how many times each of the masks occurs, so let's leave out all of the infrequently occurring masks:
+
+    $ python maskgen.py --occurrence=10000 rockyou.csv 
+
+    [*] [5] [220730/14344391] [1.00] [0d|0h|0m|0s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d 
+    [*] [6] [1741132/14344391] [12.00] [0d|0h|1m|87s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?s?u?l?d 
+    [*] [7] [2228900/14344391] [15.00] [0d|1h|89m|5396s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?s?u?l?d 
+    [*] [8] [2591942/14344391] [18.00] [5d|142h|8543m|512622s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?s?u?l?d ?u?l?d ?s?u?l?d 
+    [*] [9] [1857159/14344391] [12.00] [563d|13527h|811651m|48699101s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?s?u?l?d ?u?l?d ?s?u?l?d ?u?l?d ?s?u?l?d 
+    [*] [10] [1623494/14344391] [11.00] [14884d|357228h|21433720m|1286023221s] ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?u?d?l ?s?u?d?l 
+    [*] [11] [634442/14344391] [4.00] [602275d|14454600h|867276011m|52036560683s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d 
+    [*] [12] [362705/14344391] [2.00] [54842d|1316217h|78973022m|4738381338s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [13] [205833/14344391] [1.00] [1974325d|47383813h|2843028802m|170581728179s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [14] [133214/14344391] [0.00] [71075720d|1705817281h|102349036907m|6140942214464s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [15] [55398/14344391] [0.00] [19412723d|465905372h|27954322371m|1677259342285s] ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l 
+    [*] [16] [33484/14344391] [0.00] [504730820d|12113539694h|726812381657m|43608742899428s] ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l 
+    [*] [17] [13147/14344391] [0.00] [13123001335d|314952032051h|18897121923085m|1133827315385150s] ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l ?l 
+    [*] Coverage is %81 (11701580/14344391)
+    [*] Total time 13720867497d|329300819931h|19758049195865m|1185482951751954s 
+
+Using above masks it is possible to achieve significantly better cracking times while still preserving more than 80% total password coverage. For example, for passwords greater than 15 characters cracking character set can be reduced to only include lowercase alpha characters.
+
+Let's take the above output to a much more reasonable time to satisfy our goal of cracking passwords in about a day with %50 coverage. For that, we will increase the frequency count as well as add maximum mask runtime parameter of one day or 8640 seconds:
+
+    $ python maskgen.py --occurrence=100000 --maxtime=8640 rockyou.csv
+
+    [*] [5] [125816/14344391] [0.00] [0d|0h|0m|0s] ?l ?l ?l ?l ?l 
+    [*] [6] [1321621/14344391] [9.00] [0d|0h|0m|2s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [7] [1847487/14344391] [12.00] [0d|0h|1m|78s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [8] [2114310/14344391] [14.00] [0d|0h|47m|2821s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [9] [1563883/14344391] [10.00] [1d|28h|1692m|101559s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+    [*] [10] [638820/14344391] [4.00] [0d|6h|362m|21767s] ?d?l ?d?l ?d?l ?d?l ?d?l ?d?l ?d ?d ?d ?d 
+    [*] [11] [107864/14344391] [0.00] [0d|0h|1m|100s] ?d ?d ?d ?d ?d ?d ?d ?d ?d ?d ?d 
+    [*] Coverage is %53 (7719801/14344391)
+    [*] Total time 1d|35h|2105m|126327s 
+
+We have almost reached the time requirement, but we can fine tune it by adding maximum password complexity. Password complexity is determined based on the number of all possible passwords matching the mask. For example, mask "?l?d ?l?d" can have up to (26+10)^2 or 1296 passwords. In our example, we are going to relax the occurrence flag, but include maximum password complexity of 2821109907456 which corresponds to an eight character loweralphanumeric password (26+10)^8. We are also going to include the --showmasks flag to see the exact component masks, their respective counts and relative percentages.
+
+    $ maskgen.py --occurrence=50000 --maxtime=8640 --complexity=2821109907456 --showmasks rockyou.csv
+
+    [*] [5] [125816/14344391] [0.00] [0d|0h|0m|0s] ?l ?l ?l ?l ?l 
+        [5] [125816/125816] [100.00] [0.00] [0d|0h|0m|0s] ?l?l?l?l?l
+    [*] [6] [1569957/14344391] [10.00] [0d|0h|0m|56s] ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d ?u?l?d 
+        [6] [601257/1569957] [38.00] [4.00] [0d|0h|0m|0s] ?l?l?l?l?l?l
+        [6] [390546/1569957] [24.00] [2.00] [0d|0h|0m|0s] ?d?d?d?d?d?d
+        [6] [215079/1569957] [13.00] [1.00] [0d|0h|0m|0s] ?l?l?l?l?d?d
+        [6] [114739/1569957] [7.00] [0.00] [0d|0h|0m|0s] ?l?l?l?l?l?d
+        [6] [98305/1569957] [6.00] [0.00] [0d|0h|0m|0s] ?l?l?d?d?d?d
+        [6] [98189/1569957] [6.00] [0.00] [0d|0h|0m|0s] ?l?l?l?d?d?d
+        [6] [51842/1569957] [3.00] [0.00] [0d|0h|0m|0s] ?u?u?u?u?u?u
+    [*] [7] [1902375/14344391] [13.00] [0d|0h|1m|78s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+        [7] [585093/1902375] [30.00] [4.00] [0d|0h|0m|8s] ?l?l?l?l?l?l?l
+        [7] [487437/1902375] [25.00] [3.00] [0d|0h|0m|0s] ?d?d?d?d?d?d?d
+        [7] [292318/1902375] [15.00] [2.00] [0d|0h|0m|1s] ?l?l?l?l?l?d?d
+        [7] [193110/1902375] [10.00] [1.00] [0d|0h|0m|3s] ?l?l?l?l?l?l?d
+        [7] [178308/1902375] [9.00] [1.00] [0d|0h|0m|0s] ?l?l?l?d?d?d?d
+        [7] [111221/1902375] [5.00] [0.00] [0d|0h|0m|0s] ?l?l?l?l?d?d?d
+        [7] [54888/1902375] [2.00] [0.00] [0d|0h|0m|0s] ?l?d?d?d?d?d?d
+    [*] [8] [2114310/14344391] [14.00] [0d|0h|47m|2821s] ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d ?l?d 
+        [8] [688053/2114310] [32.00] [4.00] [0d|0h|3m|208s] ?l?l?l?l?l?l?l?l
+        [8] [428306/2114310] [20.00] [2.00] [0d|0h|0m|0s] ?d?d?d?d?d?d?d?d
+        [8] [420326/2114310] [19.00] [2.00] [0d|0h|0m|30s] ?l?l?l?l?l?l?d?d
+        [8] [235364/2114310] [11.00] [1.00] [0d|0h|0m|4s] ?l?l?l?l?d?d?d?d
+        [8] [189855/2114310] [8.00] [1.00] [0d|0h|1m|80s] ?l?l?l?l?l?l?l?d
+        [8] [152406/2114310] [7.00] [1.00] [0d|0h|0m|11s] ?l?l?l?l?l?d?d?d
+    [*] [9] [1047021/14344391] [7.00] [0d|7h|470m|28211s] ?d?l ?d?l ?d?l ?d?l ?d?l ?d?l ?d?l ?d?l ?d 
+        [9] [307540/1047021] [29.00] [2.00] [0d|0h|0m|1s] ?d?d?d?d?d?d?d?d?d
+        [9] [273640/1047021] [26.00] [1.00] [0d|0h|13m|803s] ?l?l?l?l?l?l?l?d?d
+        [9] [173560/1047021] [16.00] [1.00] [0d|0h|1m|118s] ?l?l?l?l?l?d?d?d?d
+        [9] [160061/1047021] [15.00] [1.00] [0d|0h|34m|2088s] ?l?l?l?l?l?l?l?l?d
+        [9] [132220/1047021] [12.00] [0.00] [0d|0h|5m|308s] ?l?l?l?l?l?l?d?d?d
+    [*] [10] [478224/14344391] [3.00] [0d|0h|0m|10s] ?d ?d ?d ?d ?d ?d ?d ?d ?d ?d 
+        [10] [478224/478224] [100.00] [3.00] [0d|0h|0m|10s] ?d?d?d?d?d?d?d?d?d?d
+    [*] [11] [107864/14344391] [0.00] [0d|0h|1m|100s] ?d ?d ?d ?d ?d ?d ?d ?d ?d ?d ?d 
+        [11] [107864/107864] [100.00] [0.00] [0d|0h|1m|100s] ?d?d?d?d?d?d?d?d?d?d?d
+    [*] Coverage is %51 (7345567/14344391)
+    [*] Total time 0d|8h|521m|31276s 
+
+Aha! By only losing a few cracked passwords, we have significantly reduced the cracking time. There is a wealth of information that you can analyze, but with enough practice you should be able to achieve that perfect mask combination representative of your target.
+
+There are a few additional useful parameters which I did not yet cover:
+
+--pps - Exact passwords per second speed of a sample setup (used for statistical calculations)
+--minlength and --maxlength - Define minimum and maximum password lengths
+
+--checkmask - Checks how many times a particular mask appears in the sample
+
+For example, let's find out how well "?l ?l ?l ?l ?l ?l ?l?d ?l?d" mask will perform in the sample:
+
+    $ python maskgen.py --checkmask="?l ?l ?l ?l ?l ?l ?l?d ?l?d" --showmasks rockyou.csv
+
+    [*] [8] [1305708/14344391] [9.00] [0d|0h|6m|400s] ?l ?l ?l ?l ?l ?l ?l?d ?l?d 
+        [8] [688053/1305708] [52.00] [4.00] [0d|0h|3m|208s] ?l?l?l?l?l?l?l?l
+        [8] [420326/1305708] [32.00] [2.00] [0d|0h|0m|30s] ?l?l?l?l?l?l?d?d
+        [8] [189855/1305708] [14.00] [1.00] [0d|0h|1m|80s] ?l?l?l?l?l?l?l?d
+        [8] [7474/1305708] [0.00] [0.00] [0d|0h|1m|80s] ?l?l?l?l?l?l?d?l
+    [*] Coverage is %9 (1305708/14344391)
+    [*] Total time 0d|0h|6m|400s 
+
+The above output, will tell you that this mask matches only 9 percent of passwords and will take only 6 minutes of cracking time.
+
+PolicyGen
+--------------
+
+A lot of the dictionary attacks will fail in the corporate environment with minimum password complexity rules. Instead of performing a pure bruteforcing attack, we can leverage known password complexity rules to avoid trying password candidates that are not compliant with the policy (e.g. ?l?l?l?l?l?l?l?l when at least one digit is required). Using PolicyGen, you will be able to generate a list of valid policy compliant (or intentionally non-compliant) rules that can be used to significantly decrease the cracking time. Below is a sample session where we generate all valid password masks for the environment requiring at least one digit, one upper, and one special characters.
+
+    $ python policygen.py --output=masks.txt --mindigit=1 --minupper=1 --minspecial=1 --length 8 --pps=40000000000
+    [*] Password policy:
+    [+] Password length: 8
+    [+] Minimum strength: lower: 0, upper: 1, digits: 1, special: 1
+    [+] Maximum strength: lower: 8, upper: 8, digits: 8, special: 8
+    [*] Total Masks:  65536 Runtime: [1d|38h|2324m|139463s]
+    [*] Policy Masks: 46620 Runtime: [0d|18h|1097m|65828s]
+
+From the output above, the total bruteforce runtime for an eight character password is 38 hours. However, when cracking passwords only matching a specific password policy, we can reduce this time to only 18 hours!
+
+Here is a snippet of the 'masks.txt' generated by the above command:
+
+    ?l?l?l?l?l?u?d?s
+    ?l?l?l?l?l?u?s?d
+    ?l?l?l?l?l?d?u?s
+    ?l?l?l?l?l?d?s?u
+    ?l?l?l?l?l?s?u?d
+    ?l?l?l?l?l?s?d?u
+    ?l?l?l?l?u?l?d?s
+    ?l?l?l?l?u?l?s?d
+    ?l?l?l?l?u?u?d?s
+    ?l?l?l?l?u?u?s?d
+    ...
+
+All of the above masks, will contain at least one digit, one upper and one special characters.
+
+Running PolicyGen in verbose mode to see the exact character and complexity statistics for each mask:
+
+    $ python policygen.py --output=masks.txt --mindigit=1 --minupper=1 --minspecial=1 --length 8 --pps=40000000000 --verbose | head
+    [*] Password policy:
+    [+] Password length: 8
+    [+] Minimum strength: lower: 0, upper: 1, digits: 1, special: 1
+    [+] Maximum strength: lower: 8, upper: 8, digits: 8, special: 8
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?u?d?s [l:5 u:1 d:1 s:1]
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?u?s?d [l:5 u:1 d:1 s:1]
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?d?u?s [l:5 u:1 d:1 s:1]
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?d?s?u [l:5 u:1 d:1 s:1]
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?s?u?d [l:5 u:1 d:1 s:1]
+    [*] [0d|0h|0m|2s] ?l?l?l?l?l?s?d?u [l:5 u:1 d:1 s:1]
+  ...
+
+NOTE: You can also use this program to test for compliance of existing passwords to the defined minimum password complexity policy. Simply reverse --mindigit to --maxdigit parameters in order to generate masks matching non-compliant passwords.
+
+Conclusion
+==============
+
+While this guide introduces a number of methods to analyze passwords, reverse rules and generate masks, there are a number of other tricks that are waiting for you to discover. I would be excited if you told me about some unusual use or suggestions for any of the covered tools.
+
+Happy Cracking!
+   -Peter
