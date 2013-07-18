@@ -34,13 +34,6 @@ from optparse import OptionParser
 
 VERSION = "0.0.2"
 
-try:
-    import psyco
-    psyco.full()
-    print "[*] Using Psyco to accelerate parsing."
-except ImportError:
-    print "[?] Psyco is not available. Install Psyco on 32-bit systems for faster parsing."
-
 password_counter = 0
 
 # Constants
