@@ -42,15 +42,13 @@ class MaskGen:
     def __init__(self):
         # Masks collections with meta data
         self.masks = dict()
-        self.lengthmasks = dict()
 
-        self.minlength = 0
-        self.maxlength = sys.maxint
+        self.minlength  = None
+        self.maxlength  = None
+        self.complexity = None
+        self.occurrence = None
 
-        self.maxtime = sys.maxint
-
-        self.complexity = sys.maxint
-        self.occurrence = 0
+        self.maxtime    = sys.maxint
 
         # PPS (Passwords per Second) Cracking Speed
         self.pps = 1000000000
@@ -83,13 +81,13 @@ class MaskGen:
             mask_length = len(mask)/2
             mask_complexity = self.getcomplexity(mask)
 
-            self.total_occurrence =+ mask_occurrence
+            self.total_occurrence += mask_occurrence
 
             # Apply filters based on occurrence, length, complexity and time
-            if mask_occurrence >= self.occurrence and \
-               mask_complexity <= self.complexity and \
-               mask_length <= self.maxlength      and \
-               mask_length >= self.minlength:
+            if (not self.occurrence or mask_occurrence >= self.occurrence) and \
+               (not self.complexity or mask_complexity <= self.complexity) and \
+               (not self.maxlength or mask_length <= self.maxlength) and \
+               (not self.minlength or mask_length >= self.minlength):
         
                 self.masks[mask] = dict()
                 self.masks[mask]['length'] = mask_length
@@ -110,17 +108,18 @@ class MaskGen:
 
         for mask in sorted(self.masks.keys(), key=lambda mask: self.masks[mask]['optindex'], reverse=False):
 
-            time_human = "EXCEEDED" if self.masks[mask]['time'] > 60*60*24 else str(datetime.timedelta(seconds=self.masks[mask]['time']))
-            print "[{:<2}] {:<30} [{:>8}] [{:>7}] ".format(self.masks[mask]['length'], mask, time_human, self.masks[mask]['occurrence'])
+            time_human = "EXCEEDED" if self.masks[mask]['time'] > 60*60*24*365 else str(datetime.timedelta(seconds=self.masks[mask]['time']))
+            print "[{:<2}] {:<30} [{:<7}] [{:>8}]  ".format(self.masks[mask]['length'], mask, self.masks[mask]['occurrence'], time_human)
 
-            sample_occurrence =+ self.masks[mask]['occurrence']
-            sample_time =+ self.masks[mask]['time']
+            sample_occurrence += self.masks[mask]['occurrence']
+            sample_time += self.masks[mask]['time']
             if sample_time > self.maxtime:
                 print "[!] Estimated runtime exceeded."
                 break
 
         print "[*] Coverage is %d%% (%d/%d)" % (sample_occurrence*100/self.total_occurrence,sample_occurrence,self.total_occurrence)
-        #print "[*] Total time [%dd|%dh|%dm|%ds]" % (sample_time/60/60/24,sample_time/60/60,sample_time/60,sample_time)
+        time_human = "EXCEEDED" if sample_time > 60*60*24*365 else str(datetime.timedelta(seconds=sample_time))
+        print "[*] Total runtime %s" % time_human
 
 if __name__ == "__main__":
 
