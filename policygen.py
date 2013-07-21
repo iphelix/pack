@@ -28,11 +28,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import string, random
+import sys, string, random
+import datetime
 from optparse import OptionParser, OptionGroup
 import itertools
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 # PPS (Passwords per Second) Cracking Speed
 pps = 1000000000
@@ -41,58 +42,124 @@ pps = 1000000000
 sample_time = 0
 total_time = 0
 
-##################################################################
-# Calculate complexity of a single mask
-##################################################################
-def complexity(mask):
-    count = 1
-    for char in mask[1:].split("?"):
-        if   char == "l": count *= 26
-        elif char == "u": count *= 26
-        elif char == "d": count *= 10
-        elif char == "s": count *= 33
-        else: "[!] Error, unknown mask ?%s" % char
+class PolicyGen:    
+    def __init__(self):
+        self.output_file = None
 
-    return count
-
-###################################################################
-# Check whether a sample password mask matches defined policy
-###################################################################       
-def filtermask(maskstring,options):
-    global total_time, sample_time
-    
-    # define character counters
-    lowercount = uppercount = digitcount = specialcount = 0
-    
-    # calculate password complexity and cracking time
-    mask_time = complexity(maskstring)/options.pps
-    total_time += mask_time
-    
-    for char in maskstring[1:].split("?"):
-        if char == "l": lowercount += 1
-        elif char == "u": uppercount += 1
-        elif char == "d": digitcount += 1
-        elif char == "s": specialcount += 1
-            
-    # Filter according to password policy
-    if lowercount   >= options.minlower   and lowercount   <= options.maxlower and \
-       uppercount   >= options.minupper   and uppercount   <= options.maxupper and \
-       digitcount   >= options.mindigits  and digitcount   <= options.maxdigits and \
-       specialcount >= options.minspecial and specialcount <= options.maxspecial:
-        sample_time += mask_time
-        if options.verbose:
-            print "[*] [%dd|%dh|%dm|%ds] %s [l:%d u:%d d:%d s:%d]" % (mask_time/60/60/24, mask_time/60/60, mask_time/60, mask_time,maskstring,lowercount,uppercount,digitcount,specialcount)
-        return True
-    else:
-        return False
+        self.minlength  = 8
+        self.maxlength  = 8
+        self.mindigit   = None
+        self.minlower   = None
+        self.minupper   = None
+        self.minspecial = None
+        self.maxdigit   = None
+        self.maxlower   = None
+        self.maxupper   = None
+        self.maxspecial = None
 
 
-def main():
-    # define mask counters
-    total_count = sample_count = 0
+        # PPS (Passwords per Second) Cracking Speed
+        self.pps = 1000000000
+        self.showmasks = False
+
+    def getcomplexity(self, mask):
+        """ Return mask complexity. """
+        count = 1
+        for char in mask[1:].split("?"):
+            if char == "l":   count *= 26
+            elif char == "u": count *= 26
+            elif char == "d": count *= 10
+            elif char == "s": count *= 33
+            else: print "[!] Error, unknown mask ?%s in a mask %s" % (char,mask)
+
+        return count
+   
+    def generate_masks(self, noncompliant):
+        """ Generate all possible password masks matching the policy """
+
+        total_count = 0
+        sample_count = 0
+
+        # NOTE: It is better to collect total complexity
+        # in order not to lose precision when dividing by pps
+        total_complexity = 0
+        sample_complexity = 0
+
+        # TODO: Randomize or even statistically arrange matching masks
+        for length in xrange(self.minlength, self.maxlength+1):
+            print "[*] Generating %d character password masks." % length
+            total_length_count = 0
+            sample_length_count = 0
+
+            total_length_complexity = 0
+            sample_length_complexity = 0
+
+            for masklist in itertools.product(['?d','?l','?u','?s'], repeat=length):
+
+                mask = ''.join(masklist)
+
+                lowercount = 0
+                uppercount = 0
+                digitcount = 0
+                specialcount = 0
+
+                mask_complexity = self.getcomplexity(mask)      
+                
+                total_length_count += 1
+                total_length_complexity += mask_complexity
+
+                # Count charachter types in a mask
+                for char in mask[1:].split("?"):
+                    if char == "l": lowercount += 1
+                    elif char == "u": uppercount += 1
+                    elif char == "d": digitcount += 1
+                    elif char == "s": specialcount += 1
+                        
+                # Filter according to password policy
+                # NOTE: Perform exact opposite (XOR) operation if noncompliant
+                #       flag was set when calling the function.
+                if ((not self.minlower or lowercount   >= self.minlower) and \
+                   (not self.maxlower or lowercount   <= self.maxlower) and \
+                   (not self.minupper or uppercount   >= self.minupper) and \
+                   (not self.maxupper or uppercount   <= self.maxupper) and \
+                   (not self.mindigit or digitcount   >= self.mindigit) and \
+                   (not self.maxdigit or digitcount   <= self.maxdigit) and \
+                   (not self.minspecial or specialcount >= self.minspecial) and \
+                   (not self.maxspecial or specialcount <= self.maxspecial)) ^ noncompliant :
+
+                    sample_length_count += 1
+                    sample_length_complexity += mask_complexity
+
+                    if self.showmasks:
+                        mask_time = mask_complexity/self.pps      
+                        time_human = ">1 year" if mask_time > 60*60*24*365 else str(datetime.timedelta(seconds=mask_time))
+                        print "[{:>2}] {:<30} [l:{:>2} u:{:>2} d:{:>2} s:{:>2}] [{:>8}]  ".format(length, mask, lowercount,uppercount,digitcount,specialcount, time_human)
+
+                    if self.output_file:
+                        self.output_file.write("%s\n" % mask)
+
+
+
+            total_count += total_length_count
+            sample_count += sample_length_count
+
+            total_complexity += total_length_complexity
+            sample_complexity += sample_length_complexity
+
+
+        total_time = total_complexity/self.pps
+        total_time_human = ">1 year" if total_time > 60*60*24*365 else str(datetime.timedelta(seconds=total_time))
+        print "[*] Total Masks:  %d Time: %s" % (total_count, total_time_human)
+
+        sample_time = sample_complexity/self.pps
+        sample_time_human = ">1 year" if sample_time > 60*60*24*365 else str(datetime.timedelta(seconds=sample_time))
+        print "[*] Policy Masks: %d Time: %s" % (sample_count, sample_time_human)
+
+
+if __name__ == "__main__":
 
     header  = "                       _ \n"
-    header += "     PolicyGen 0.0.1  | |\n"  
+    header += "     PolicyGen %s  | |\n"  % VERSION
     header += "      _ __   __ _  ___| | _\n"
     header += "     | '_ \ / _` |/ __| |/ /\n"
     header += "     | |_) | (_| | (__|   < \n"
@@ -103,56 +170,60 @@ def main():
 
     # parse command line arguments
     parser = OptionParser("%prog [options]\n\nType --help for more options", version="%prog "+VERSION)
-    parser.add_option("--length", dest="length", help="Password length", type="int", default=8, metavar="8")
-    parser.add_option("-o", "--output", dest="output",help="Save masks to a file", metavar="masks.txt")
-    parser.add_option("--pps", dest="pps", help="Passwords per Second", type="int", default=pps, metavar="1000000000")
-    parser.add_option("-v", "--verbose", action="store_true", dest="verbose")
+    parser.add_option("-o", "--outputmasks", dest="output_masks",help="Save masks to a file", metavar="masks.hcmask")
+    parser.add_option("--pps", dest="pps", help="Passwords per Second", type="int", metavar="1000000000")
+    parser.add_option("--showmasks", dest="showmasks", help="Show matching masks", action="store_true", default=False)
+    parser.add_option("--noncompliant", dest="noncompliant", help="Generate masks for noncompliant passwords", action="store_true", default=False)
 
     group = OptionGroup(parser, "Password Policy", "Define the minimum (or maximum) password strength policy that you would like to test")
-    group.add_option("--mindigits", dest="mindigits", help="Minimum number of digits", default=0, type="int", metavar="1")
-    group.add_option("--minlower", dest="minlower", help="Minimum number of lower-case characters", default=0, type="int", metavar="1")
-    group.add_option("--minupper", dest="minupper", help="Minimum number of upper-case characters", default=0, type="int", metavar="1")
-    group.add_option("--minspecial", dest="minspecial", help="Minimum number of special characters", default=0, type="int", metavar="1")
-    group.add_option("--maxdigits", dest="maxdigits", help="Maximum number of digits", default=9999, type="int", metavar="3")
-    group.add_option("--maxlower", dest="maxlower", help="Maximum number of lower-case characters", default=9999, type="int", metavar="3")
-    group.add_option("--maxupper", dest="maxupper", help="Maximum number of upper-case characters", default=9999, type="int", metavar="3")
-    group.add_option("--maxspecial", dest="maxspecial", help="Maximum number of special characters", default=9999, type="int", metavar="3")
-    parser.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Don't show headers.")
+    group.add_option("--minlength", dest="minlength", type="int", metavar="8", default=8, help="Minimum password length")
+    group.add_option("--maxlength", dest="maxlength", type="int", metavar="8", default=8, help="Maximum password length")
+    group.add_option("--mindigit", dest="mindigit", type="int", metavar="1", help="Minimum number of digits")
+    group.add_option("--minlower",  dest="minlower",  type="int", metavar="1", help="Minimum number of lower-case characters")
+    group.add_option("--minupper",  dest="minupper",  type="int", metavar="1", help="Minimum number of upper-case characters")
+    group.add_option("--minspecial",dest="minspecial",type="int", metavar="1", help="Minimum number of special characters")
+    group.add_option("--maxdigit", dest="maxdigit", type="int", metavar="3", help="Maximum number of digits")
+    group.add_option("--maxlower",  dest="maxlower",  type="int", metavar="3", help="Maximum number of lower-case characters")
+    group.add_option("--maxupper",  dest="maxupper",  type="int", metavar="3", help="Maximum number of upper-case characters")
+    group.add_option("--maxspecial",dest="maxspecial",type="int", metavar="3", help="Maximum number of special characters")
     parser.add_option_group(group)
 
-    (options, args) = parser.parse_args()
+    parser.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Don't show headers.")
 
-    # cleanup maximum occurence options
-    if options.maxlower > options.length: options.maxlower = options.length
-    if options.maxdigits > options.length: options.maxdigits = options.length
-    if options.mindigits > options.length: options.mindigits = options.length
-    if options.maxupper > options.length: options.maxupper = options.length
-    if options.maxspecial > options.length: options.maxspecial = options.length
+    (options, args) = parser.parse_args()
 
     # Print program header
     if not options.quiet:
         print header
 
-    # print current password policy
+    policygen = PolicyGen()
+
+    # Settings    
+    if options.output_masks:
+        print "[*] Saving generated masks to [%s]" % options.output_masks
+        policygen.output_file = open(options.output_masks, 'w')
+
+    # Password policy
+    if options.minlength:  policygen.minlength  = options.minlength
+    if options.maxlength:  policygen.maxlength  = options.maxlength
+    if options.mindigit:   policygen.mindigit   = options.mindigit
+    if options.minlower:   policygen.minlower   = options.minlower
+    if options.minupper:   policygen.minupper   = options.minupper
+    if options.minspecial: policygen.minspecial = options.minspecial
+    if options.maxdigit:   policygen.maxdigits  = options.maxdigit
+    if options.maxlower:   policygen.maxlower   = options.maxlower
+    if options.maxupper:   policygen.maxupper   = options.maxupper
+    if options.maxspecial: policygen.maxspecial = options.maxspecial
+
+    # Misc
+    if options.pps: policygen.pps = options.pps
+    if options.showmasks: policygen.showmasks = options.showmasks
+
+    # Print current password policy
     print "[*] Password policy:"
-    print "[+] Password length: %d" % options.length
-    print "[+] Minimum strength: lower: %d, upper: %d, digits: %d, special: %d" % (options.minlower, options.minupper, options.mindigits, options.minspecial)
-    print "[+] Maximum strength: lower: %d, upper: %d, digits: %d, special: %d" % (options.maxlower, options.maxupper, options.maxdigits, options.maxspecial)
+    print "    Pass Lengths: min:%d max:%d" % (options.minlength,options.maxlength)
+    print "    Min strength: l:%s u:%s d:%s s:%s" % (options.minlower, options.minupper, options.mindigit, options.minspecial)
+    print "    Max strength: l:%s u:%s d:%s s:%s" % (options.maxlower, options.maxupper, options.maxdigit, options.maxspecial)
 
-    if options.output: f = open(options.output, 'w')
-
-    # generate all possible password masks and compare them to policy
-    # TODO: Randomize or even statistically arrange matching masks
-    for password in itertools.product(['?l','?u','?d','?s'],repeat=options.length):
-        if filtermask(''.join(password), options):
-            if options.output: f.write("%s\n" % ''.join(password))
-            sample_count +=1
-        total_count += 1
-
-    if options.output: f.close()
-
-    print "[*] Total Masks:  %d Runtime: [%dd|%dh|%dm|%ds]" % (total_count, total_time/60/60/24, total_time/60/60, total_time/60, total_time)
-    print "[*] Policy Masks: %d Runtime: [%dd|%dh|%dm|%ds]" % (sample_count, sample_time/60/60/24, sample_time/60/60, sample_time/60, sample_time)
-
-if __name__ == "__main__":
-    main()
+    print "[*] Generating [%s] masks." % ("compliant" if not options.noncompliant else "non-compliant")
+    policygen.generate_masks(options.noncompliant)

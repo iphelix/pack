@@ -96,7 +96,8 @@ class MaskGen:
                 self.masks[mask]['time'] = mask_complexity/self.pps
                 self.masks[mask]['optindex'] = 1 - mask_complexity/mask_occurrence
 
-    def print_masks(self,sorting_mode):
+    def generate_masks(self,sorting_mode):
+        """ Generate optimal password masks sorted by occurrence, complexity or optindex """
         sample_count = 0
         sample_time = 0
         sample_occurrence = 0
@@ -263,7 +264,7 @@ if __name__ == "__main__":
             sorting_mode = "optindex"
 
         print "[*] Sorting masks by their [%s]." % sorting_mode
-        maskgen.print_masks(sorting_mode)
+        maskgen.generate_masks(sorting_mode)
 
 
 
