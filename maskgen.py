@@ -65,6 +65,7 @@ class MaskGen:
             elif char == "u": count *= 26
             elif char == "d": count *= 10
             elif char == "s": count *= 33
+            elif char == "a": count *= 95
             else: print "[!] Error, unknown mask ?%s in a mask %s" % (char,mask)
 
         return count
@@ -265,6 +266,3 @@ if __name__ == "__main__":
 
         print "[*] Sorting masks by their [%s]." % sorting_mode
         maskgen.generate_masks(sorting_mode)
-
-
-

@@ -70,6 +70,7 @@ class PolicyGen:
             elif char == "u": count *= 26
             elif char == "d": count *= 10
             elif char == "s": count *= 33
+            elif char == "a": count *= 95
             else: print "[!] Error, unknown mask ?%s in a mask %s" % (char,mask)
 
         return count
@@ -118,14 +119,14 @@ class PolicyGen:
                 # Filter according to password policy
                 # NOTE: Perform exact opposite (XOR) operation if noncompliant
                 #       flag was set when calling the function.
-                if ((not self.minlower or lowercount   >= self.minlower) and \
-                   (not self.maxlower or lowercount   <= self.maxlower) and \
-                   (not self.minupper or uppercount   >= self.minupper) and \
-                   (not self.maxupper or uppercount   <= self.maxupper) and \
-                   (not self.mindigit or digitcount   >= self.mindigit) and \
-                   (not self.maxdigit or digitcount   <= self.maxdigit) and \
-                   (not self.minspecial or specialcount >= self.minspecial) and \
-                   (not self.maxspecial or specialcount <= self.maxspecial)) ^ noncompliant :
+                if ((self.minlower   == None or lowercount   >= self.minlower) and \
+                    (self.maxlower   == None or lowercount   <= self.maxlower) and \
+                    (self.minupper   == None or uppercount   >= self.minupper) and \
+                    (self.maxupper   == None or uppercount   <= self.maxupper) and \
+                    (self.mindigit   == None or digitcount   >= self.mindigit) and \
+                    (self.maxdigit   == None or digitcount   <= self.maxdigit) and \
+                    (self.minspecial == None or specialcount >= self.minspecial) and \
+                    (self.maxspecial == None or specialcount <= self.maxspecial)) ^ noncompliant :
 
                     sample_length_count += 1
                     sample_length_complexity += mask_complexity
@@ -137,8 +138,6 @@ class PolicyGen:
 
                     if self.output_file:
                         self.output_file.write("%s\n" % mask)
-
-
 
             total_count += total_length_count
             sample_count += sample_length_count
@@ -204,16 +203,16 @@ if __name__ == "__main__":
         policygen.output_file = open(options.output_masks, 'w')
 
     # Password policy
-    if options.minlength:  policygen.minlength  = options.minlength
-    if options.maxlength:  policygen.maxlength  = options.maxlength
-    if options.mindigit:   policygen.mindigit   = options.mindigit
-    if options.minlower:   policygen.minlower   = options.minlower
-    if options.minupper:   policygen.minupper   = options.minupper
-    if options.minspecial: policygen.minspecial = options.minspecial
-    if options.maxdigit:   policygen.maxdigits  = options.maxdigit
-    if options.maxlower:   policygen.maxlower   = options.maxlower
-    if options.maxupper:   policygen.maxupper   = options.maxupper
-    if options.maxspecial: policygen.maxspecial = options.maxspecial
+    if options.minlength  != None: policygen.minlength  = options.minlength
+    if options.maxlength  != None: policygen.maxlength  = options.maxlength
+    if options.mindigit   != None: policygen.mindigit   = options.mindigit
+    if options.minlower   != None: policygen.minlower   = options.minlower
+    if options.minupper   != None: policygen.minupper   = options.minupper
+    if options.minspecial != None: policygen.minspecial = options.minspecial
+    if options.maxdigit   != None: policygen.maxdigits  = options.maxdigit
+    if options.maxlower   != None: policygen.maxlower   = options.maxlower
+    if options.maxupper   != None: policygen.maxupper   = options.maxupper
+    if options.maxspecial != None: policygen.maxspecial = options.maxspecial
 
     # Misc
     if options.pps: policygen.pps = options.pps
@@ -221,9 +220,9 @@ if __name__ == "__main__":
 
     # Print current password policy
     print "[*] Password policy:"
-    print "    Pass Lengths: min:%d max:%d" % (options.minlength,options.maxlength)
-    print "    Min strength: l:%s u:%s d:%s s:%s" % (options.minlower, options.minupper, options.mindigit, options.minspecial)
-    print "    Max strength: l:%s u:%s d:%s s:%s" % (options.maxlower, options.maxupper, options.maxdigit, options.maxspecial)
+    print "    Pass Lengths: min:%d max:%d" % (policygen.minlength, policygen.maxlength)
+    print "    Min strength: l:%s u:%s d:%s s:%s" % (policygen.minlower, policygen.minupper, policygen.mindigit, policygen.minspecial)
+    print "    Max strength: l:%s u:%s d:%s s:%s" % (policygen.maxlower, policygen.maxupper, policygen.maxdigit, policygen.maxspecial)
 
     print "[*] Generating [%s] masks." % ("compliant" if not options.noncompliant else "non-compliant")
     policygen.generate_masks(options.noncompliant)

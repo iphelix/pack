@@ -167,13 +167,13 @@ def main():
         if count*100/filter_counter > 0:
             print "[+] %25d: %02d%% (%d)" % (length, count*100/filter_counter, count)
 
-    print "\n[*] Mask statistics..."
-    for (mask,count) in sorted(masks.iteritems(), key=operator.itemgetter(1), reverse=True):
-        print "[+] %25s: %02d%% (%d)" % (mask, count*100/filter_counter, count)
-
     print "\n[*] Charset statistics..."
     for (char,count) in sorted(chars.iteritems(), key=operator.itemgetter(1), reverse=True):
         print "[+] %25s: %02d%% (%d)" % (char, count*100/filter_counter, count)
+
+    print "\n[*] Mask statistics..."
+    for (mask,count) in sorted(masks.iteritems(), key=operator.itemgetter(1), reverse=True):
+        print "[+] %25s: %02d%% (%d)" % (mask, count*100/filter_counter, count)
 
     print "\n[*] Advanced Mask statistics..."
     for (advmask,count) in sorted(advmasks.iteritems(), key=operator.itemgetter(1), reverse=True):
