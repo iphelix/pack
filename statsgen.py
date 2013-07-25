@@ -30,79 +30,157 @@
 
 import sys
 import re, operator, string
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 
 VERSION = "0.0.2"
 
-password_counter = 0
+class StatsGen:
+    def __init__(self):
+        self.output_file = None
 
-# Constants
-chars_regex = list()
-chars_regex.append(('numeric',re.compile('^[0-9]+$')))
-chars_regex.append(('loweralpha',re.compile('^[a-z]+$')))
-chars_regex.append(('upperalpha',re.compile('^[A-Z]+$')))
-chars_regex.append(('mixedalpha',re.compile('^[a-zA-Z]+$')))
-chars_regex.append(('loweralphanum',re.compile('^[a-z0-9]+$')))
-chars_regex.append(('upperalphanum',re.compile('^[A-Z0-9]+$')))
-chars_regex.append(('mixedalphanum',re.compile('^[a-zA-Z0-9]+$')))
-chars_regex.append(('special',re.compile('^[^a-zA-Z0-9]+$')))
-chars_regex.append(('loweralphaspecial',re.compile('^[^A-Z0-9]+$')))
-chars_regex.append(('upperalphaspecial',re.compile('^[^a-z0-9]+$')))
-chars_regex.append(('mixedalphaspecial',re.compile('^[^0-9]+$')))
-chars_regex.append(('loweralphaspecialnum',re.compile('^[^A-Z]+$')))
-chars_regex.append(('upperalphaspecialnum',re.compile('^[^a-z]+$')))
-chars_regex.append(('mixedalphaspecialnum',re.compile('.*')))
+        # Filters
+        self.minlength   = None
+        self.maxlength   = None
+        self.simplemasks = None
+        self.charsets    = None
 
-masks_regex = list()
-masks_regex.append(('alldigit',re.compile('^\d+$', re.IGNORECASE)))
-masks_regex.append(('allstring',re.compile('^[a-z]+$', re.IGNORECASE)))
-masks_regex.append(('stringdigit',re.compile('^[a-z]+\d+$', re.IGNORECASE)))
-masks_regex.append(('digitstring',re.compile('^\d+[a-z]+$', re.IGNORECASE)))
-masks_regex.append(('digitstringdigit',re.compile('^\d+[a-z]+\d+$', re.IGNORECASE)))
-masks_regex.append(('stringdigitstring',re.compile('^[a-z]+\d+[a-z]+$', re.IGNORECASE)))
-masks_regex.append(('allspecial',re.compile('^[^a-z0-9]+$', re.IGNORECASE)))
-masks_regex.append(('stringspecial',re.compile('^[a-z]+[^a-z0-9]+$', re.IGNORECASE)))
-masks_regex.append(('specialstring',re.compile('^[^a-z0-9]+[a-z]+$', re.IGNORECASE)))
-masks_regex.append(('stringspecialstring',re.compile('^[a-z]+[^a-z0-9]+[a-z]+$', re.IGNORECASE)))
-masks_regex.append(('stringspecialdigit',re.compile('^[a-z]+[^a-z0-9]+\d+$', re.IGNORECASE)))
-masks_regex.append(('specialstringspecial',re.compile('^[^a-z0-9]+[a-z]+[^a-z0-9]+$', re.IGNORECASE)))
+        # Constants
+        self.chars_regex = list()
+        self.chars_regex.append(('numeric',re.compile('^[0-9]+$')))
+        self.chars_regex.append(('loweralpha',re.compile('^[a-z]+$')))
+        self.chars_regex.append(('upperalpha',re.compile('^[A-Z]+$')))
+        self.chars_regex.append(('mixedalpha',re.compile('^[a-zA-Z]+$')))
+        self.chars_regex.append(('loweralphanum',re.compile('^[a-z0-9]+$')))
+        self.chars_regex.append(('upperalphanum',re.compile('^[A-Z0-9]+$')))
+        self.chars_regex.append(('mixedalphanum',re.compile('^[a-zA-Z0-9]+$')))
+        self.chars_regex.append(('special',re.compile('^[^a-zA-Z0-9]+$')))
+        self.chars_regex.append(('loweralphaspecial',re.compile('^[^A-Z0-9]+$')))
+        self.chars_regex.append(('upperalphaspecial',re.compile('^[^a-z0-9]+$')))
+        self.chars_regex.append(('mixedalphaspecial',re.compile('^[^0-9]+$')))
+        self.chars_regex.append(('loweralphaspecialnum',re.compile('^[^A-Z]+$')))
+        self.chars_regex.append(('upperalphaspecialnum',re.compile('^[^a-z]+$')))
+        self.chars_regex.append(('mixedalphaspecialnum',re.compile('.*')))
 
-def length_check(password): 
-    return len(password)
+        self.masks_regex = list()
+        self.masks_regex.append(('alldigit',re.compile('^\d+$', re.IGNORECASE)))
+        self.masks_regex.append(('allstring',re.compile('^[a-z]+$', re.IGNORECASE)))
+        self.masks_regex.append(('stringdigit',re.compile('^[a-z]+\d+$', re.IGNORECASE)))
+        self.masks_regex.append(('digitstring',re.compile('^\d+[a-z]+$', re.IGNORECASE)))
+        self.masks_regex.append(('digitstringdigit',re.compile('^\d+[a-z]+\d+$', re.IGNORECASE)))
+        self.masks_regex.append(('stringdigitstring',re.compile('^[a-z]+\d+[a-z]+$', re.IGNORECASE)))
+        self.masks_regex.append(('allspecial',re.compile('^[^a-z0-9]+$', re.IGNORECASE)))
+        self.masks_regex.append(('stringspecial',re.compile('^[a-z]+[^a-z0-9]+$', re.IGNORECASE)))
+        self.masks_regex.append(('specialstring',re.compile('^[^a-z0-9]+[a-z]+$', re.IGNORECASE)))
+        self.masks_regex.append(('stringspecialstring',re.compile('^[a-z]+[^a-z0-9]+[a-z]+$', re.IGNORECASE)))
+        self.masks_regex.append(('stringspecialdigit',re.compile('^[a-z]+[^a-z0-9]+\d+$', re.IGNORECASE)))
+        self.masks_regex.append(('specialstringspecial',re.compile('^[^a-z0-9]+[a-z]+[^a-z0-9]+$', re.IGNORECASE)))
 
-def masks_check(password):
-    for (name,regex) in masks_regex:
-        if regex.match(password):
-            return name
-    else:
-        return "othermask"
+        # Stats dictionaries
+        self.stats_length = dict()
+        self.stats_simplemasks = dict()
+        self.stats_advancedmasks = dict()
+        self.stats_charactersets = dict()
 
-def chars_check(password):
-    for (name,regex) in chars_regex:
-        if regex.match(password):
-            return name
-    else:
-        return "otherchar"
+        self.hiderare = False
 
-def advmask_check(password):
-    advmask = list()
-    for letter in password:
-        if letter in string.digits: advmask.append("?d")
-        elif letter in string.lowercase: advmask.append("?l")
-        elif letter in string.uppercase: advmask.append("?u")
-        else: advmask.append("?s")
-    return "".join(advmask)     
+        self.filter_counter = 0
+        self.total_counter = 0
 
-def main():
-    password_length = dict()
-    masks = dict()
-    advmasks = dict()
-    chars = dict()
-    filter_counter = 0
-    total_counter = 0
+    def simplemasks_check(self, password):
+        for (name,regex) in self.masks_regex:
+            if regex.match(password):
+                return name
+        else:
+            return "othermask"
+
+    def characterset_check(self, password):
+        for (name,regex) in self.chars_regex:
+            if regex.match(password):
+                return name
+        else:
+            return "otherchar"
+
+    def advancedmask_check(self, password):
+        mask = list()
+        for letter in password:
+            if letter in string.digits: mask.append("?d")
+            elif letter in string.lowercase: mask.append("?l")
+            elif letter in string.uppercase: mask.append("?u")
+            else: mask.append("?s")
+        return "".join(mask)
+
+    def generate_stats(self, filename):
+
+        f = open(filename,'r')
+
+        for password in f:
+            password = password.rstrip('\r\n')
+            self.total_counter += 1  
+        
+            pass_length = len(password)
+            characterset = self.characterset_check(password)
+            simplemask   = self.simplemasks_check(password)
+            advancedmask = self.advancedmask_check(password)
+
+            if (self.charsets == None    or characterset in self.charsets) and \
+               (self.simplemasks == None or simplemask in self.simplemasks) and \
+               (self.maxlength == None   or pass_length <= self.maxlength) and \
+               (self.minlength == None   or pass_length >= self.minlength):
+
+                self.filter_counter += 1         
+
+                if pass_length in self.stats_length:
+                    self.stats_length[pass_length] += 1
+                else:
+                    self.stats_length[pass_length] = 1
+
+                if characterset in self.stats_charactersets:
+                    self.stats_charactersets[characterset] += 1
+                else:
+                    self.stats_charactersets[characterset] = 1
+
+                if simplemask in self.stats_simplemasks:
+                    self.stats_simplemasks[simplemask] += 1
+                else:
+                    self.stats_simplemasks[simplemask] = 1
+
+                if advancedmask in self.stats_advancedmasks:
+                    self.stats_advancedmasks[advancedmask] += 1
+                else:
+                    self.stats_advancedmasks[advancedmask] = 1
+
+        f.close()
+
+    def print_stats(self):
+        print "[+] Analyzing %d%% (%d/%d) of passwords" % (self.filter_counter*100/self.total_counter, self.filter_counter, self.total_counter)
+        print "    NOTE: Statistics below is relative to the number of analyzed passwords, not total number of passwords"
+        print "\n[*] Line Count Statistics..."
+        for (length,count) in sorted(self.stats_length.iteritems(), key=operator.itemgetter(1), reverse=True):
+            if self.hiderare and not count*100/self.filter_counter > 0: continue
+            print "[+] %25d: %02d%% (%d)" % (length, count*100/self.filter_counter, count)
+
+        print "\n[*] Charset statistics..."
+        for (char,count) in sorted(self.stats_charactersets.iteritems(), key=operator.itemgetter(1), reverse=True):
+            if self.hiderare and not count*100/self.filter_counter > 0: continue
+            print "[+] %25s: %02d%% (%d)" % (char, count*100/self.filter_counter, count)
+
+        print "\n[*] Simple Mask statistics..."
+        for (simplemask,count) in sorted(self.stats_simplemasks.iteritems(), key=operator.itemgetter(1), reverse=True):
+            if self.hiderare and not count*100/self.filter_counter > 0: continue
+            print "[+] %25s: %02d%% (%d)" % (simplemask, count*100/self.filter_counter, count)
+
+        print "\n[*] Advanced Mask statistics..."
+        for (advancedmask,count) in sorted(self.stats_advancedmasks.iteritems(), key=operator.itemgetter(1), reverse=True):
+            if count*100/self.filter_counter > 0:
+                print "[+] %25s: %02d%% (%d)" % (advancedmask, count*100/self.filter_counter, count)
+
+            if self.output_file:
+                self.output_file.write("%s,%d\n" % (advancedmask,count))
+
+if __name__ == "__main__":
 
     header  = "                       _ \n"
-    header += "     StatsGen 0.0.2   | |\n"  
+    header += "     StatsGen %s   | |\n"  % VERSION
     header += "      _ __   __ _  ___| | _\n"
     header += "     | '_ \ / _` |/ __| |/ /\n"
     header += "     | |_) | (_| | (__|   < \n"
@@ -111,11 +189,18 @@ def main():
     header += "     |_| iphelix@thesprawl.org\n"
     header += "\n"
 
-    parser = OptionParser("%prog [options] passwords.txt", version="%prog "+VERSION)
-    parser.add_option("-l", "--length", dest="length_filter",help="Password length filter.",metavar="8")
-    parser.add_option("-c", "--charset", dest="char_filter", help="Password charset filter.", metavar="loweralpha")
-    parser.add_option("-m", "--mask", dest="mask_filter",help="Password mask filter", metavar="stringdigit")
-    parser.add_option("-o", "--masksoutput", dest="mask_output",help="Generate and save masks db to a file", metavar="masks.csv")
+    parser = OptionParser("%prog [options] passwords.txt\n\nType --help for more options", version="%prog "+VERSION)
+
+    filters = OptionGroup(parser, "Password Filters")
+    filters.add_option("--minlength", dest="minlength", type="int", metavar="8", help="Minimum password length")
+    filters.add_option("--maxlength", dest="maxlength", type="int", metavar="8", help="Maximum password length")
+    filters.add_option("--charset", dest="charsets", help="Password charset filter (comma separated)", metavar="loweralpha,numeric")
+    filters.add_option("--simplemask", dest="simplemasks",help="Password mask filter (comma separated)", metavar="stringdigit,allspecial")
+    parser.add_option_group(filters)
+
+    parser.add_option("-o", "--output", dest="output_file",help="Save masks and stats to a file", metavar="password.masks")
+    parser.add_option("--hiderare", action="store_true", dest="hiderare", default=False, help="Hide statistics covering less than 1% of the sample")
+
     parser.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Don't show headers.")
     (options, args) = parser.parse_args()
 
@@ -126,66 +211,21 @@ def main():
     if len(args) != 1:
         parser.error("no passwords file specified")
         exit(1)
-    
-    print "[*] Analyzing passwords: %s" % args[0]
 
-    f = open(args[0],'r')
+    print "[*] Analyzing passwords in [%s]" % args[0]
 
-    for password in f:
-        password = password.strip()
-        total_counter += 1  
-    
-        pass_len = length_check(password)
-        mask_set = masks_check(password)
-        char_set = chars_check(password)
-        advmask = advmask_check(password)
+    statsgen = StatsGen()
 
-        if (not options.length_filter or str(pass_len) in options.length_filter.split(',')) and \
-           (not options.char_filter or char_set in options.char_filter.split(',')) and \
-           (not options.mask_filter or mask_set in options.mask_filter.split(',')):         
-    
-            filter_counter += 1         
+    if not options.minlength   == None: statsgen.minlength   = options.minlength
+    if not options.maxlength   == None: statsgen.maxlength   = options.maxlength
+    if not options.charsets    == None: statsgen.charsets    = [x.strip() for x in options.charsets.split(',')]
+    if not options.simplemasks == None: statsgen.simplemasks = [x.strip() for x in options.simplemasks.split(',')]
 
-            try: password_length[pass_len] += 1
-            except: password_length[pass_len] = 1
+    if options.hiderare: statsgen.hiderare = options.hiderare
 
-            try: masks[mask_set] += 1
-            except: masks[mask_set] = 1
+    if options.output_file:
+        print "[*] Saving advanced masks and occurrences to [%s]" % options.output_file
+        statsgen.output_file = open(options.output_file, 'w')
 
-            try: chars[char_set] += 1
-            except: chars[char_set] = 1
-
-            try: advmasks[advmask] += 1
-            except: advmasks[advmask] = 1
-
-    f.close()
-
-    print "[+] Analyzing %d%% (%d/%d) passwords" % (filter_counter*100/total_counter, filter_counter, total_counter)
-    print "    NOTE: Statistics below is relative to the number of analyzed passwords, not total number of passwords"
-    print "\n[*] Line Count Statistics..."
-    for (length,count) in sorted(password_length.iteritems(), key=operator.itemgetter(1), reverse=True):
-        if count*100/filter_counter > 0:
-            print "[+] %25d: %02d%% (%d)" % (length, count*100/filter_counter, count)
-
-    print "\n[*] Charset statistics..."
-    for (char,count) in sorted(chars.iteritems(), key=operator.itemgetter(1), reverse=True):
-        print "[+] %25s: %02d%% (%d)" % (char, count*100/filter_counter, count)
-
-    print "\n[*] Mask statistics..."
-    for (mask,count) in sorted(masks.iteritems(), key=operator.itemgetter(1), reverse=True):
-        print "[+] %25s: %02d%% (%d)" % (mask, count*100/filter_counter, count)
-
-    print "\n[*] Advanced Mask statistics..."
-    for (advmask,count) in sorted(advmasks.iteritems(), key=operator.itemgetter(1), reverse=True):
-        if count*100/filter_counter > 0:
-            print "[+] %25s: %02d%% (%d)" % (advmask, count*100/filter_counter, count)
-
-    if options.mask_output:
-        print "\n[*] Saving Mask statistics to %s" % options.mask_output
-        fmask = open(options.mask_output, "w")
-        for (advmask,count) in sorted(advmasks.iteritems(), key=operator.itemgetter(1), reverse=True):
-            fmask.write("%s,%d\n" % (advmask,count))
-        fmask.close()
-
-if __name__ == "__main__":
-    main()
+    statsgen.generate_stats(args[0])
+    statsgen.print_stats()

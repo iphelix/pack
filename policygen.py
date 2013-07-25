@@ -35,13 +35,6 @@ import itertools
 
 VERSION = "0.0.2"
 
-# PPS (Passwords per Second) Cracking Speed
-pps = 1000000000
-
-# Global Variables
-sample_time = 0
-total_time = 0
-
 class PolicyGen:    
     def __init__(self):
         self.output_file = None
@@ -56,7 +49,6 @@ class PolicyGen:
         self.maxlower   = None
         self.maxupper   = None
         self.maxspecial = None
-
 
         # PPS (Passwords per Second) Cracking Speed
         self.pps = 1000000000
@@ -82,7 +74,7 @@ class PolicyGen:
         sample_count = 0
 
         # NOTE: It is better to collect total complexity
-        # in order not to lose precision when dividing by pps
+        #       not to lose precision when dividing by pps
         total_complexity = 0
         sample_complexity = 0
 
@@ -91,6 +83,7 @@ class PolicyGen:
             print "[*] Generating %d character password masks." % length
             total_length_count = 0
             sample_length_count = 0
+
 
             total_length_complexity = 0
             sample_length_complexity = 0
@@ -177,11 +170,11 @@ if __name__ == "__main__":
     group = OptionGroup(parser, "Password Policy", "Define the minimum (or maximum) password strength policy that you would like to test")
     group.add_option("--minlength", dest="minlength", type="int", metavar="8", default=8, help="Minimum password length")
     group.add_option("--maxlength", dest="maxlength", type="int", metavar="8", default=8, help="Maximum password length")
-    group.add_option("--mindigit", dest="mindigit", type="int", metavar="1", help="Minimum number of digits")
+    group.add_option("--mindigit",  dest="mindigit",  type="int", metavar="1", help="Minimum number of digits")
     group.add_option("--minlower",  dest="minlower",  type="int", metavar="1", help="Minimum number of lower-case characters")
     group.add_option("--minupper",  dest="minupper",  type="int", metavar="1", help="Minimum number of upper-case characters")
     group.add_option("--minspecial",dest="minspecial",type="int", metavar="1", help="Minimum number of special characters")
-    group.add_option("--maxdigit", dest="maxdigit", type="int", metavar="3", help="Maximum number of digits")
+    group.add_option("--maxdigit",  dest="maxdigit",  type="int", metavar="3", help="Maximum number of digits")
     group.add_option("--maxlower",  dest="maxlower",  type="int", metavar="3", help="Maximum number of lower-case characters")
     group.add_option("--maxupper",  dest="maxupper",  type="int", metavar="3", help="Maximum number of upper-case characters")
     group.add_option("--maxspecial",dest="maxspecial",type="int", metavar="3", help="Maximum number of special characters")
@@ -202,6 +195,7 @@ if __name__ == "__main__":
         print "[*] Saving generated masks to [%s]" % options.output_masks
         policygen.output_file = open(options.output_masks, 'w')
 
+
     # Password policy
     if options.minlength  != None: policygen.minlength  = options.minlength
     if options.maxlength  != None: policygen.maxlength  = options.maxlength
@@ -217,6 +211,8 @@ if __name__ == "__main__":
     # Misc
     if options.pps: policygen.pps = options.pps
     if options.showmasks: policygen.showmasks = options.showmasks
+
+    print "[*] Using {:,d} keys/sec for calculations.".format(policygen.pps)
 
     # Print current password policy
     print "[*] Password policy:"

@@ -46,12 +46,15 @@ class MaskGen:
 
         self.minlength  = None
         self.maxlength  = None
+        self.mintime    = None
         self.maxtime    = None
+        self.mincomplexity = None
         self.maxcomplexity = None
         self.minoccurrence = None
+        self.maxoccurrence = None
 
         # PPS (Passwords per Second) Cracking Speed
-        self.pps = 10000000000
+        self.pps = 1000000000
         self.showmasks = False
 
         # Counter for total masks coverage
@@ -81,20 +84,25 @@ class MaskGen:
             mask_occurrence = int(occurrence)
             mask_length = len(mask)/2
             mask_complexity = self.getcomplexity(mask)
+            mask_time = mask_complexity/self.pps
 
             self.total_occurrence += mask_occurrence
 
             # Apply filters based on occurrence, length, complexity and time
-            if (not self.minoccurrence or mask_occurrence >= self.minoccurrence) and \
-               (not self.maxcomplexity or mask_complexity <= self.maxcomplexity) and \
-               (not self.maxlength or mask_length <= self.maxlength) and \
-               (not self.minlength or mask_length >= self.minlength):
+            if (self.minoccurrence == None or mask_occurrence >= self.minoccurrence) and \
+               (self.maxoccurrence == None or mask_occurrence <= self.maxoccurrence) and \
+               (self.mincomplexity == None or mask_complexity <= self.mincomplexity) and \
+               (self.maxcomplexity == None or mask_complexity <= self.maxcomplexity) and \
+               (self.mintime == None or mask_time <= self.mintime) and \
+               (self.maxtime == None or mask_time <= self.maxtime) and \
+               (self.maxlength == None or mask_length <= self.maxlength) and \
+               (self.minlength == None or mask_length >= self.minlength):
         
                 self.masks[mask] = dict()
                 self.masks[mask]['length'] = mask_length
                 self.masks[mask]['occurrence'] = mask_occurrence
                 self.masks[mask]['complexity'] = 1 - mask_complexity
-                self.masks[mask]['time'] = mask_complexity/self.pps
+                self.masks[mask]['time'] = mask_time
                 self.masks[mask]['optindex'] = 1 - mask_complexity/mask_occurrence
 
     def generate_masks(self,sorting_mode):
@@ -132,13 +140,18 @@ class MaskGen:
         print "    Masks runtime:   %s" % time_human
 
     def getmaskscoverage(self, checkmasks):
+
         sample_count = 0
-        sample_time = 0
         sample_occurrence = 0
+
+        total_complexity = 0
 
         if self.showmasks: print "[L:] Mask:                          [ Occ:  ] [ Time:  ]" 
         for mask in checkmasks:
             mask = mask.strip()
+            mask_complexity = self.getcomplexity(mask)
+
+            total_complexity += mask_complexity
 
             if mask in self.masks:
 
@@ -150,17 +163,18 @@ class MaskGen:
                     self.output_file.write("%s\n" % mask)
 
                 sample_occurrence += self.masks[mask]['occurrence']
-                sample_time += self.masks[mask]['time']
                 sample_count += 1
 
-                if self.target_time and sample_time > self.target_time:
-                    print "[!] Target time exceeded."
-                    break
+            if self.target_time and total_complexity/self.pps > self.target_time:
+                print "[!] Target time exceeded."
+                break
 
+        # TODO: Something wrong here, complexity and time doesn't match with estimated from policygen
+        total_time = total_complexity/self.pps
+        time_human = ">1 year" if total_time > 60*60*24*365 else str(datetime.timedelta(seconds=total_time))
         print "[*] Finished matching masks:"
         print "    Masks matched: %s" % sample_count
         print "    Masks coverage:  %d%% (%d/%d)" % (sample_occurrence*100/self.total_occurrence,sample_occurrence,self.total_occurrence)
-        time_human = ">1 year" if sample_time > 60*60*24*365 else str(datetime.timedelta(seconds=sample_time))
         print "    Masks runtime:   %s" % time_human
 
 
@@ -182,11 +196,14 @@ if __name__ == "__main__":
     parser.add_option("-o", "--outputmasks", dest="output_masks", metavar="masks.hcmask",     help="Save masks to a file")
 
     filters = OptionGroup(parser, "Individual Mask Filter Options")
-    filters.add_option("--minlength",     dest="minlength",     type="int", metavar="8", help="Minimum password length")
-    filters.add_option("--maxlength",     dest="maxlength",     type="int", metavar="8", help="Maximum password length")
-    filters.add_option("--maxtime",       dest="maxtime",       type="int", metavar="3600",  help="Maximum runtime (seconds)")
-    filters.add_option("--maxcomplexity", dest="maxcomplexity", type="int", metavar="",  help="Maximum complexity")
-    filters.add_option("--minoccurrence", dest="minoccurrence", type="int", metavar="",  help="Minimum occurrence")
+    filters.add_option("--minlength",     dest="minlength",     type="int", metavar="8",    help="Minimum password length")
+    filters.add_option("--maxlength",     dest="maxlength",     type="int", metavar="8",    help="Maximum password length")
+    filters.add_option("--mintime",       dest="mintime",       type="int", metavar="3600", help="Minimum mask runtime (seconds)")
+    filters.add_option("--maxtime",       dest="maxtime",       type="int", metavar="3600", help="Maximum mask runtime (seconds)")
+    filters.add_option("--mincomplexity", dest="mincomplexity", type="int", metavar="1",    help="Minimum complexity")
+    filters.add_option("--maxcomplexity", dest="maxcomplexity", type="int", metavar="100",  help="Maximum complexity")
+    filters.add_option("--minoccurrence", dest="minoccurrence", type="int", metavar="1",    help="Minimum occurrence")
+    filters.add_option("--maxoccurrence", dest="maxoccurrence", type="int", metavar="100",  help="Maximum occurrence")
     parser.add_option_group(filters)
 
     sorting = OptionGroup(parser, "Mask Sorting Options")
@@ -228,15 +245,20 @@ if __name__ == "__main__":
         maskgen.output_file = open(options.output_masks, 'w')
 
     # Filters
-    if options.minlength: maskgen.minlength = options.minlength
-    if options.maxlength: maskgen.maxlength = options.maxlength
-    if options.maxtime:   maskgen.maxtime = options.maxtime
+    if options.minlength:     maskgen.minlength     = options.minlength
+    if options.maxlength:     maskgen.maxlength     = options.maxlength
+    if options.mintime:       maskgen.mintime       = options.mintime
+    if options.maxtime:       maskgen.maxtime       = options.maxtime
+    if options.mincomplexity: maskgen.mincomplexity = options.mincomplexity
     if options.maxcomplexity: maskgen.maxcomplexity = options.maxcomplexity
     if options.minoccurrence: maskgen.minoccurrence = options.minoccurrence
+    if options.maxoccurrence: maskgen.maxoccurrence = options.maxoccurrence
 
     # Misc
     if options.pps: maskgen.pps = options.pps
     if options.showmasks: maskgen.showmasks = options.showmasks
+
+    print "[*] Using {:,d} keys/sec for calculations.".format(maskgen.pps)
     
     # Load masks
     for arg in args:

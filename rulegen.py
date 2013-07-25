@@ -5,7 +5,7 @@
 #
 # This tool is part of PACK (Password Analysis and Cracking Kit)
 #
-# VERSION 0.0.1
+# VERSION 0.0.2
 #
 # Copyright (C) 2013 Peter Kacherginsky
 # All rights reserved.
@@ -44,8 +44,7 @@ from optparse import OptionParser, OptionGroup
 VERSION = "0.0.1"
 
 # Testing rules with hashcat --stdout
-import subprocess
-HASHCAT_PATH = "hashcat-0.42/"
+HASHCAT_PATH = "hashcat/"
 
 # Rule Generator class responsible for the complete cycle of rule generation
 class RuleGen:
@@ -713,7 +712,6 @@ class RuleGen:
         if self.verbose: print "[*] Analyzing password: %s" % password
         if self.verbose: start_time = time.clock()
 
-
         # Skip all numeric passwords
         if password.isdigit(): 
             if self.verbose: print "[!] %s => {skipping numeric} => %s" % (password,password)
@@ -836,7 +834,7 @@ class RuleGen:
 if __name__ == "__main__":
 
     header  = "                       _ \n"
-    header += "     RuleGen 0.0.1    | |\n"  
+    header += "     RuleGen %s    | |\n"  % VERSION
     header += "      _ __   __ _  ___| | _\n"
     header += "     | '_ \ / _` |/ __| |/ /\n"
     header += "     | |_) | (_| | (__|   < \n"
