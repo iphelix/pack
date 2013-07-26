@@ -22,8 +22,6 @@ from optparse import OptionParser, OptionGroup
 
 from collections import Counter
 
-from multiprocessing import Queue, Process
-
 VERSION = "0.0.3"
 
 # Testing rules with hashcat --stdout
@@ -37,9 +35,6 @@ class RuleGen:
 
         #######################################################################
         # Multiprocessing
-        self.password_queue = multiprocessing.Queue()
-        self.rule_queue = multiprocessing.Queue()
-        self.word_queue = multiprocessing.Queue()
 
         self.enchant_broker = enchant.Broker()
         self.enchant_broker.set_ordering("*",providers)
