@@ -807,12 +807,6 @@ class RuleGen:
                     hashcat_rule_str = " ".join(hashcat_rule + word["pre_rule"] or [':'])
                     if self.verbose: print "[+] %s => %s => %s" % (word["suggestion"], hashcat_rule_str, password)
 
-                    # Obtain a lock and write to files.
-                    #if self.hashcat:
-                    #    self.verify_hashcat_rules(word["suggestion"], hashcat_rule + word["pre_rule"], password)
-                    #self.output_rules_f.write("%s\n" % hashcat_rule_str)
-                    #self.output_words_f.write("%s\n" % word["suggestion"])
-
                     rules_queue.put(hashcat_rule_str)
                     
 
@@ -896,6 +890,7 @@ class RuleGen:
 
         password_count = 0
         analysis_start = time.time()
+        segment_start = analysis_start
         try:        
             for password in f:
                 password = password.rstrip('\r\n')
@@ -903,10 +898,12 @@ class RuleGen:
 
                     # Provide analysis time feedback to the user
                     if password_count != 0 and password_count % 5000 == 0:
-                        current_analysis_time = time.time() - analysis_start
+                        segment_time = time.time() - segment_start
                         if not self.quiet: 
                             print "[*] Processed %d passwords in %.2f seconds at the rate of %.2f p/sec" % \
-                            (password_count, current_analysis_time, password_count/current_analysis_time )
+                            (password_count, segment_time, 5000/segment_time )
+                        segment_start = time.time()
+
                     password_count += 1
 
                     # Perform preliminary checks and add password to the queue
