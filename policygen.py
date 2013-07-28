@@ -6,9 +6,9 @@
 # VERSION 0.0.2
 #
 # Copyright (C) 2013 Peter Kacherginsky
-# All rights reserved.#
+# All rights reserved.
 #
-# Please see the attached LICENSE file for additiona licensing information.
+# Please see the attached LICENSE file for additional licensing information.
 
 import sys, string, random
 import datetime
