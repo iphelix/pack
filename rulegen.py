@@ -811,7 +811,7 @@ class RuleGen:
                     
 
     def password_worker(self,i, passwords_queue, rules_queue, words_queue):
-        print "[*] Password analysis worker [%d] started." % i
+        if self.debug: print "[*] Password analysis worker [%d] started." % i
         try:
             while True:
                 password = passwords_queue.get()
@@ -821,15 +821,16 @@ class RuleGen:
 
                 self.analyze_password(password, rules_queue, words_queue)
         except (KeyboardInterrupt, SystemExit):
-            print "[*] Password analysis worker [%d] terminated." % i
+            if self.debug: print "[*] Password analysis worker [%d] terminated." % i
 
-        print "[*] Password analysis worker [%d] stopped." % i
+        if self.debug: print "[*] Password analysis worker [%d] stopped." % i
 
     def rule_worker(self, rules_queue, output_rules_filename):
         """ Worker to store generated rules. """
+        print "[*] Saving rules to %s" % output_rules_filename
 
         f = open(output_rules_filename, 'w')
-        print "[*] Rule worker started."
+        if self.debug: print "[*] Rule worker started."
         try:
             while True:
                 rule = rules_queue.get()
@@ -841,16 +842,17 @@ class RuleGen:
                 f.flush()
 
         except (KeyboardInterrupt, SystemExit):
-            print "[*] Rule worker terminated."
+            if self.debug: print "[*] Rule worker terminated."
 
         f.close()
-        print "[*] Rule worker stopped."
+        if self.debug: print "[*] Rule worker stopped."
 
     def word_worker(self, words_queue, output_words_filename):
         """ Worker to store generated rules. """
+        print "[*] Saving words to %s" % output_words_filename
 
         f = open(output_words_filename, 'w')
-        print "[*] Word worker started."
+        if self.debug: print "[*] Word worker started."
         try:
             while True:
                 word = words_queue.get()
@@ -862,16 +864,17 @@ class RuleGen:
                 f.flush()
 
         except (KeyboardInterrupt, SystemExit):
-            print "[*] Word worker terminated."
+            if self.debug: print "[*] Word worker terminated."
 
         f.close()
-        print "[*] Word worker stopped."
+        if self.debug: print "[*] Word worker stopped."
 
     # Analyze passwords file
     def analyze_passwords_file(self,passwords_file):
         """ Analyze provided passwords file. """
 
         print "[*] Analyzing passwords file: %s:" % passwords_file
+        print "[*] Press Ctrl-C to end execution and generate statistical analysis."
 
         # Setup queues
         passwords_queue = multiprocessing.Queue(multiprocessing.cpu_count() * 100)
@@ -948,7 +951,7 @@ class RuleGen:
         rules_counter = Counter(rules_file)
         rule_counter_total = sum(rules_counter.values())
 
-        print "\n[*] Top 10 rule statistics"
+        print "\n[*] Top 10 rules"
         rules_i = 0
         for (rule, count) in rules_counter.most_common():
             rules_sorted_file.write(rule)
@@ -964,7 +967,7 @@ class RuleGen:
         words_counter = Counter(words_file)
         word_counter_total = sum(rules_counter.values())
 
-        print "\n[*] Top 10 word statistics"
+        print "\n[*] Top 10 words"
         words_i = 0
         for (word, count) in words_counter.most_common():
             words_sorted_file.write(word)
@@ -1082,13 +1085,10 @@ if __name__ == "__main__":
         print "[*] Using Enchant '%s' module. For best results please install" % rulegen.enchant.provider.name
         print "    '%s' module language dictionaries." % rulegen.enchant.provider.name
 
-    if not options.quiet:
-        print "[*] Saving rules to %s.rule" % options.basename
-        print "[*] Saving words to %s.word" % options.basename
-        print "[*] Press Ctrl-C to end execution and generate statistical analysis."
+
 
     # Analyze a single password or several passwords in a file
     if options.password: 
         rulegen.analyze_password(args[0])
-    else: 
+    else:
         rulegen.analyze_passwords_file(args[0])
