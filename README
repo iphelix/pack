@@ -18,6 +18,7 @@ The most basic analysis that you can perform is simply obtaining most common len
     $ python statsgen.py rockyou.txt
 
 Below is the output from the above command:
+
                            _
          StatsGen #.#.#   | |
           _ __   __ _  ___| | _
@@ -70,6 +71,7 @@ Below is the output from the above command:
     [+]            ?d?d?d?d?d?d?d: 03% (487429)
     ...
 
+
 NOTE: You can reduce the number of outliers displayed by including the --hiderare flag which will not show any items with occurrence of less than 1%.
 
 Here is what we can immediately learn from the above list:
@@ -79,7 +81,7 @@ Here is what we can immediately learn from the above list:
  * There is no obvious minimum or maximum password complexity.
  * Analyzed passwords tend to follow a simple masks "string followed by digits".
 
-The last section, "Advanced Masks", contains most frequently occuring masks using the Hashcat format. Individual symbols can be interpreted as follows:
+The last section, "Advanced Masks", contains most frequently occurring masks using the Hashcat format. Individual symbols can be interpreted as follows:
 
     ?l - a single lowercase character
     ?u - a single uppercase character
@@ -143,14 +145,15 @@ There are a few other filters available for password length, mask, and character
 **Character sets:** --charset [digit, string, stringdigit, digitstring, digitstringdigit, etc.]
 
 NOTE: More than one filter of the same class can be specified as a comma-separated list:
-  --simplemask="stringdigit,digitstring"
+
+    --simplemask="stringdigit,digitstring"
 
 Saving advanced masks
 ---------------------
 
 While the "Advanced Mask" section only displays patterns matching greater than 1% of all passwords, you can obtain and save a full list of password masks matching a given dictionary by using the following command:
 
-$ python statsgen.py rockyou.txt -o rockyou.masks
+    $ python statsgen.py rockyou.txt -o rockyou.masks
 
 All of the password masks and their frequencies will be saved into the specified file in the CSV format. Naturally, you can provide filters to only generate masks file matching specified parameters. The output file can be used as an input to MaskGen tool covered in the next section.
 
@@ -182,15 +185,16 @@ Let's run MaskGen with only StatGen's output as an argument:
         Masks runtime:   >1 year
 
 There are several pieces of information that you should observe:
-* Default cracking speed used for calculations is 1,000,000,000 keys/sec
-* Default sorting mode is [optindex] equivalent to --optindex flag.
-* 146,578 unique masks were generate which have 100% coverage
-* Total runtime of all generated masks is more than 1 year.
+
+ * Default cracking speed used for calculations is 1,000,000,000 keys/sec
+ * Default sorting mode is [optindex] equivalent to --optindex flag.
+ * 146,578 unique masks were generated which have 100% coverage
+ * Total runtime of all generated masks is more than 1 year.
 
 Specifying target time
 ----------------------
 
-Since you have limited to perform and craft attacks, maskgen allows you to specify how much time you have to perform mask attacks and will generate the most optimal list based on the sorting mode. Let's play a bit with different sorting modes and target times:
+Since you are usually limited in time to perform and craft attacks, maskgen allows you to specify how much time you have to perform mask attacks and will generate the most optimal collection of masks based on the sorting mode. Let's play a bit with different sorting modes and target times:
 
     $ python maskgen.py rockyou.masks --targettime 600 --optindex -q
     [*] Analyzing masks in [rockyou.masks]
@@ -202,6 +206,7 @@ Since you have limited to perform and craft attacks, maskgen allows you to speci
         Masks coverage:  56% (8116195/14344390)
         Masks runtime:   0:11:36
 
+
     $ python maskgen.py rockyou.masks --targettime 600 --complexity -q
     [*] Analyzing masks in [rockyou.masks]
     [*] Using 1,000,000,000 keys/sec for calculations.
@@ -211,6 +216,7 @@ Since you have limited to perform and craft attacks, maskgen allows you to speci
         Masks generated: 5163
         Masks coverage:  31% (4572346/14344390)
         Masks runtime:   0:10:01
+
 
     $ python maskgen.py rockyou.masks --targettime 600 --occurrence -q
     [*] Analyzing masks in [rockyou.masks]
@@ -222,7 +228,9 @@ Since you have limited to perform and craft attacks, maskgen allows you to speci
         Masks coverage:  16% (2390986/14344390)
         Masks runtime:   1:34:05
 
-All of the above experiments have target time of 600 seconds (or 10 minutes) with different sorting modes. Based on our experiments, masks generated using OptIndex sorting mode can crack 56% of RockYou passwords in about 10 minutes. At the same time masks generated using Occurrence sorting mode not only have pretty weak coverage of only 16%, but also exceeded specified target time by more than an hour.
+All of the above runs have target time of 600 seconds (or 10 minutes) with different sorting modes. Based on our experiments, masks generated using OptIndex sorting mode can crack 56% of RockYou passwords in about 10 minutes. At the same time masks generated using Occurrence sorting mode not only have pretty weak coverage of only 16%, but also exceeded specified target time by more than an hour.
+
+NOTE: Masks sorted by complexity can be very effective when attacking policy based lists.
 
 Let's see some of the masks generated by maskgen in optindex mode using the --showmasks flag:
 
@@ -252,6 +260,7 @@ Let's see some of the masks generated by maskgen in optindex mode using the --sh
  
 Displayed masks follow a pretty intuitive format:
 
+
   [ 9] ?l?l?l?l?d?d?d?d?s             [1553   ] [ 0:02:30]
     \   \                              \          \
      \   \_ generated mask              \          \_ mask runtime
@@ -259,12 +268,12 @@ Displayed masks follow a pretty intuitive format:
        \_ mask length                     \_ mask occurrence
 
 
-In the above sample you can see some of the logic that goes into mask generation. For example, while '?s?l?l?l?l?l?l?s' mask has one of the longest runtimes in the sample (5 minutes), it still has higher priority because of its relatively higher occurrence to '?l?l?l?l?d?d?d?d?s'. At the same time, while '?l?d?s?l?l?d?d' has pretty low coverage it still gets a higher priority than other masks because a only a six character mask it executes very quickly.
+In the above sample you can see some of the logic that goes into mask generation. For example, while '?s?l?l?l?l?l?l?s' mask has one of the longest runtimes in the sample (5 minutes), it still has higher priority because of its relatively higher occurrence to '?l?l?l?l?d?d?d?d?s'. At the same time, while '?l?d?s?l?l?d?d' has pretty low coverage it still gets a higher priority than other masks because as only a six character mask it executes very quickly.
 
 Specifying mask filters
 -----------------------
 
-You can further optimize your generated mask attacks by using filters. For example, you may have sufficiently powerful hardware where you can simple bruteforce all of the passwords up to 7 characters. You can generate masks only greater than 8 characters using the --minlength flag as follows:
+You can further optimize your generated mask attacks by using filters. For example, you may have sufficiently powerful hardware where you can simple bruteforce all of the passwords up to 8 characters. In this case, you can generate masks only greater than 8 characters using the --minlength flag as follows:
 
     $ python maskgen.py rockyou.masks --targettime 43200 --optindex -q --minlength 8
     [*] Analyzing masks in [rockyou.masks]
@@ -278,7 +287,7 @@ You can further optimize your generated mask attacks by using filters. For examp
 
 Naturally the generated mask coverage was reduced, but these filters become useful when preparing a collection of masks when attacking password lists other than the one used to generate them.
 
-Below are some more additional filters that you can use:
+The list below shows additional filters you can use:
 
       Individual Mask Filter Options:
         --minlength=8       Minimum password length
@@ -292,7 +301,7 @@ Below are some more additional filters that you can use:
         --maxoccurrence=100
                             Maximum occurrence
 
-Occurrrence and complexity flags can be particularly powerful to fine-tune generate masks using different sorting modes.
+Occurrrence and complexity flags can be particularly powerful to fine-tune generated masks using different sorting modes.
 
 Saving generated masks
 ----------------------
@@ -315,7 +324,7 @@ This will produce 'rockyou.hcmask' file which can be directly used by Hashcat su
 Checking mask coverage
 ----------------------
 
-It is often useful to see how well generated masks perform against already cracked lists. Maskgen can compare a collection of masks generated using statsgen against generate mask output produced by maskgen. Let's compare how well our attack will perform against a compromised list such as Gawker:
+It is often useful to see how well generated masks perform against already cracked lists. Maskgen can compare a collection of masks against others to see how well they would perform if masks from one password list would be attempted against another. Let's compare how well masks generated from RockYou list will perform against another compromised list such as Gawker:
 
     $ python statsgen.py ../PACK-0.0.3/archive/gawker.dic -o gawker.masks
 
@@ -346,7 +355,7 @@ Both of the specified masks matched with only 1% coverage.
 Specifying speed
 ----------------
 
-Depending on your exast hardware parameters you may want to increase or decrease keys/sec speed used during calculations using the '--pps' parameter:
+Depending on your exact hardware specs and target hash you may want to increase or decrease keys/sec speed used during calculations using the '--pps' parameter:
 
     $ python maskgen.py rockyou.masks --targettime 43200 --pps 50000000 -q
     [*] Analyzing masks in [rockyou.masks]
@@ -363,7 +372,7 @@ Using the '--pps' parameter to match you actual performance makes target time mo
 PolicyGen
 =========
 
-A lot of the dictionary attacks will fail in the corporate environment with minimum password complexity requirements. Instead of resorting to a pure bruteforcing attack, we can leverage known or guessed password complexity rules to avoid trying password candidates that are not compliant with the policy or inversely only audit passwords for compliance. Using PolicyGen, you will be able to generate a collection of masks following the password complexity in order to significantly reduce the cracking time. 
+A lot of the mask and dictionary attacks will fail in the corporate environment with minimum password complexity requirements. Instead of resorting to a pure bruteforcing attack, we can leverage known or guessed password complexity rules to avoid trying password candidates that are not compliant with the policy or inversely only audit for noncompliant passwords. Using PolicyGen, you will be able to generate a collection of masks following the password complexity in order to significantly reduce the cracking time. 
 
 Below is a sample session where we generate all valid password masks for an environment requiring at least one digit, one upper, and one special characters.
 
@@ -454,14 +463,16 @@ Rules Analysis
 
 Reversing source words and word mangling rules from already cracked passwords can be very effective in performing attacks against still encrypted hashes. By continuously recycling/expanding generated rules and words you may be able to crack a greater number of passwords.
 
-There are several prerequisites for effective use of `rulegen.py`. The tool utilizes Enchant spell-checking library to interface with a number of spell-checking engines such as Aspell, MySpell, etc. You must install these tools prior to the tool use. It is also critical to install dictionaries for whatever spell-checking engine you end up using (alternatively it is possible to use a custom wordlist). You may also need to install Enchant if it is not already installed on your system. At last, I have bundled PyEnchant for convenience which should interface directly with Enchant's shared libraries; however, should there be any issues, simply remove the bundled 'enchant' directory and install PyEnchant for your distribution.
+Prerequisites
+-----------------
+There are several prerequisites for the effective use of `rulegen.py`. The tool utilizes Enchant spell-checking library to interface with a number of spell-checking engines such as Aspell, MySpell, etc. You must install these tools prior to use. It is also critical to install dictionaries for whatever spell-checking engine you end up using (alternatively it is possible to use a custom wordlist). At last, I have bundled PyEnchant for convenience which should interface directly with Enchant's shared libraries; however, should there be any issues, simply remove the bundled 'enchant' directory and install PyEnchant for your distribution.
 
 For additional details on specific Hashcat rule syntax see [Hashcat Rule Based Attack](http://hashcat.net/wiki/doku.php?id=rule_based_attack).
 
 Analyzing a Single Password
 -------------------------------
 
-The most basic use of `rulegen.py` involves analysis of a single password to automatically detect rules. Let's detect rules and a source word used to generate a sample password `P@55w0rd123`:
+The most basic use of `rulegen.py` involves analysis of a single password to automatically detect rules. Let's detect rules and potential source word used to generate a sample password `P@55w0rd123`:
 
     $ python rulegen.py --verbose --password P@55w0rd123
                            _ 
@@ -662,4 +673,5 @@ Conclusion
 While this guide introduces a number of methods to analyze passwords, reverse rules and generate masks, there are a number of other tricks that are waiting for you to discover. I would be excited if you told me about some unusual use or suggestions for any of the covered tools.
 
 Happy Cracking!
+
    -Peter

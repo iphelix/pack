@@ -900,11 +900,10 @@ class RuleGen:
                 if len(password) > 0:
 
                     # Provide analysis time feedback to the user
-                    if password_count != 0 and password_count % 5000 == 0:
+                    if not self.quiet and password_count != 0 and password_count % 5000 == 0:
                         segment_time = time.time() - segment_start
-                        if not self.quiet: 
-                            print "[*] Processed %d passwords in %.2f seconds at the rate of %.2f p/sec" % \
-                            (password_count, segment_time, 5000/segment_time )
+                        print "[*] Processed %d passwords in %.2f seconds at the rate of %.2f p/sec" % \
+                            (password_count, segment_start - analysis_start, 5000/segment_time )
                         segment_start = time.time()
 
                     password_count += 1
@@ -931,7 +930,6 @@ class RuleGen:
 
         f.close()
 
-
         analysis_time = time.time() - analysis_start
         print "[*] Finished processing %d passwords in %.2f seconds at the rate of %.2f p/sec" % (password_count, analysis_time, float(password_count)/analysis_time )
 
@@ -942,7 +940,6 @@ class RuleGen:
                     (self.special_stats_total, float(self.special_stats_total)*100.0/float(password_count))
         print "[-] Skipped %d passwords with non ascii characters (%0.2f%%)" % \
                     (self.foreign_stats_total, float(self.foreign_stats_total)*100.0/float(password_count))
-
 
         # TODO: Counter breaks on large files. uniq -c | sort -rn is still the most 
         #       optimal way.
