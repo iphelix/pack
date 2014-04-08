@@ -26,7 +26,7 @@ import subprocess
 
 import multiprocessing
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 # Testing rules with hashcat --stdout
 HASHCAT_PATH = "hashcat/"
@@ -35,7 +35,9 @@ HASHCAT_PATH = "hashcat/"
 class RuleGen:
 
     # Initialize Rule Generator class
-    def __init__(self,language="en",providers="aspell,myspell",basename='analysis',threads=4):
+    def __init__(self,language="en",providers="aspell,myspell",basename='analysis',threads=multiprocessing.cpu_count()):
+
+        self.threads = threads
 
         self.enchant_broker = enchant.Broker()
         self.enchant_broker.set_ordering("*",providers)
@@ -877,12 +879,12 @@ class RuleGen:
         print "[*] Press Ctrl-C to end execution and generate statistical analysis."
 
         # Setup queues
-        passwords_queue = multiprocessing.Queue(multiprocessing.cpu_count() * 100)
+        passwords_queue = multiprocessing.Queue(self.threads)
         rules_queue = multiprocessing.Queue()
         words_queue = multiprocessing.Queue()
 
         # Start workers
-        for i in range(multiprocessing.cpu_count()):
+        for i in range(self.threads):
             multiprocessing.Process(target=self.password_worker, args=(i, passwords_queue, rules_queue, words_queue)).start()
         multiprocessing.Process(target=self.rule_worker, args=(rules_queue, "%s.rule" % self.basename)).start()
         multiprocessing.Process(target=self.word_worker, args=(words_queue, "%s.word" % self.basename)).start()
@@ -1014,7 +1016,7 @@ if __name__ == "__main__":
     parser.add_option("-b","--basename", help="Output base name. The following files will be generated: basename.words, basename.rules and basename.stats", default="analysis",metavar="rockyou")
     parser.add_option("-w","--wordlist", help="Use a custom wordlist for rule analysis.", metavar="wiki.dict")
     parser.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Don't show headers.")
-    parser.add_option("--threads", type="int", default=10, help="Parallel threads to use for processing.")
+    parser.add_option("--threads", type="int", default=multiprocessing.cpu_count(), help="Parallel threads to use for processing.")
 
     wordtune = OptionGroup(parser, "Fine tune source word generation:")
     wordtune.add_option("--maxworddist", help="Maximum word edit distance (Levenshtein)", type="int", default=10, metavar="10")
@@ -1081,8 +1083,6 @@ if __name__ == "__main__":
         if options.wordlist: rulegen.load_custom_wordlist(options.wordlist)
         print "[*] Using Enchant '%s' module. For best results please install" % rulegen.enchant.provider.name
         print "    '%s' module language dictionaries." % rulegen.enchant.provider.name
-
-
 
     # Analyze a single password or several passwords in a file
     if options.password: 
