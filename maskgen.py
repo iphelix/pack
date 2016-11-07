@@ -73,13 +73,13 @@ class MaskGen:
             # Apply filters based on occurrence, length, complexity and time
             if (self.minoccurrence == None or mask_occurrence >= self.minoccurrence) and \
                (self.maxoccurrence == None or mask_occurrence <= self.maxoccurrence) and \
-               (self.mincomplexity == None or mask_complexity <= self.mincomplexity) and \
+               (self.mincomplexity == None or mask_complexity >= self.mincomplexity) and \
                (self.maxcomplexity == None or mask_complexity <= self.maxcomplexity) and \
-               (self.mintime == None or mask_time <= self.mintime) and \
+               (self.mintime == None or mask_time >= self.mintime) and \
                (self.maxtime == None or mask_time <= self.maxtime) and \
                (self.maxlength == None or mask_length <= self.maxlength) and \
                (self.minlength == None or mask_length >= self.minlength):
-        
+
                 self.masks[mask] = dict()
                 self.masks[mask]['length'] = mask_length
                 self.masks[mask]['occurrence'] = mask_occurrence
@@ -128,7 +128,7 @@ class MaskGen:
 
         total_complexity = 0
 
-        if self.showmasks: print "[L:] Mask:                          [ Occ:  ] [ Time:  ]" 
+        if self.showmasks: print "[L:] Mask:                          [ Occ:  ] [ Time:  ]"
         for mask in checkmasks:
             mask = mask.strip()
             mask_complexity = self.getcomplexity(mask)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     # Print program header
-    if not options.quiet: 
+    if not options.quiet:
         print header
 
     if len(args) < 1:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     if options.showmasks: maskgen.showmasks = options.showmasks
 
     print "[*] Using {:,d} keys/sec for calculations.".format(maskgen.pps)
-    
+
     # Load masks
     for arg in args:
         maskgen.loadmasks(arg)
@@ -261,11 +261,11 @@ if __name__ == "__main__":
     # Printing masks in a file
     else:
         # Process masks according to specified sorting algorithm
-        if options.occurrence: 
+        if options.occurrence:
             sorting_mode = "occurrence"
-        elif options.complexity: 
+        elif options.complexity:
             sorting_mode = "complexity"
-        else: 
+        else:
             sorting_mode = "optindex"
 
         print "[*] Sorting masks by their [%s]." % sorting_mode
