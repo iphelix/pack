@@ -919,7 +919,7 @@ class RuleGen:
 
         else:
             # Signal workers to stop.
-            for i in range(multiprocessing.cpu_count()):
+            for i in range(self.threads):
                 passwords_queue.put(None) 
 
            # Wait for all of the queued passwords to finish.
