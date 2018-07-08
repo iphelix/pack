@@ -121,58 +121,56 @@ class StatsGen:
     def generate_stats(self, filename):
         """ Generate password statistics. """
 
-        f = open(filename,'r')
+        with open(filename, 'r') as f:
 
-        for password in f:
-            password = password.rstrip('\r\n')
+            for password in f:
+                password = password.rstrip('\r\n')
 
-            if len(password) == 0: continue
+                if len(password) == 0: continue
 
-            self.total_counter += 1  
+                self.total_counter += 1  
 
-            (pass_length,characterset,simplemask,advancedmask, policy) = self.analyze_password(password)
-            (digit,lower,upper,special) = policy
+                (pass_length,characterset,simplemask,advancedmask, policy) = self.analyze_password(password)
+                (digit,lower,upper,special) = policy
 
-            if (self.charsets == None    or characterset in self.charsets) and \
-               (self.simplemasks == None or simplemask in self.simplemasks) and \
-               (self.maxlength == None   or pass_length <= self.maxlength) and \
-               (self.minlength == None   or pass_length >= self.minlength):
+                if (self.charsets == None    or characterset in self.charsets) and \
+                   (self.simplemasks == None or simplemask in self.simplemasks) and \
+                   (self.maxlength == None   or pass_length <= self.maxlength) and \
+                   (self.minlength == None   or pass_length >= self.minlength):
 
-                self.filter_counter += 1
+                    self.filter_counter += 1
 
-                if self.mindigit == None or digit < self.mindigit: self.mindigit = digit
-                if self.maxdigit == None or digit > self.maxdigit: self.maxdigit = digit
+                    if self.mindigit == None or digit < self.mindigit: self.mindigit = digit
+                    if self.maxdigit == None or digit > self.maxdigit: self.maxdigit = digit
 
-                if self.minupper == None or upper < self.minupper: self.minupper = upper
-                if self.maxupper == None or upper > self.maxupper: self.maxupper = upper
+                    if self.minupper == None or upper < self.minupper: self.minupper = upper
+                    if self.maxupper == None or upper > self.maxupper: self.maxupper = upper
 
-                if self.minlower == None or lower < self.minlower: self.minlower = lower
-                if self.maxlower == None or lower > self.maxlower: self.maxlower = lower
+                    if self.minlower == None or lower < self.minlower: self.minlower = lower
+                    if self.maxlower == None or lower > self.maxlower: self.maxlower = lower
 
-                if self.minspecial == None or special < self.minspecial: self.minspecial = special
-                if self.maxspecial == None or special > self.maxspecial: self.maxspecial = special
+                    if self.minspecial == None or special < self.minspecial: self.minspecial = special
+                    if self.maxspecial == None or special > self.maxspecial: self.maxspecial = special
 
-                if pass_length in self.stats_length:
-                    self.stats_length[pass_length] += 1
-                else:
-                    self.stats_length[pass_length] = 1
+                    if pass_length in self.stats_length:
+                        self.stats_length[pass_length] += 1
+                    else:
+                        self.stats_length[pass_length] = 1
 
-                if characterset in self.stats_charactersets:
-                    self.stats_charactersets[characterset] += 1
-                else:
-                    self.stats_charactersets[characterset] = 1
+                    if characterset in self.stats_charactersets:
+                        self.stats_charactersets[characterset] += 1
+                    else:
+                        self.stats_charactersets[characterset] = 1
 
-                if simplemask in self.stats_simplemasks:
-                    self.stats_simplemasks[simplemask] += 1
-                else:
-                    self.stats_simplemasks[simplemask] = 1
+                    if simplemask in self.stats_simplemasks:
+                        self.stats_simplemasks[simplemask] += 1
+                    else:
+                        self.stats_simplemasks[simplemask] = 1
 
-                if advancedmask in self.stats_advancedmasks:
-                    self.stats_advancedmasks[advancedmask] += 1
-                else:
-                    self.stats_advancedmasks[advancedmask] = 1
-
-        f.close()
+                    if advancedmask in self.stats_advancedmasks:
+                        self.stats_advancedmasks[advancedmask] += 1
+                    else:
+                        self.stats_advancedmasks[advancedmask] = 1
 
     def print_stats(self):
         """ Print password statistics. """
