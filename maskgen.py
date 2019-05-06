@@ -51,6 +51,9 @@ class MaskGen:
             elif char == "d": count *= 10
             elif char == "s": count *= 33
             elif char == "a": count *= 95
+            elif char == "b": count *= 256
+            elif char == "h": count *= 16
+            elif char == "H": count *= 16
             else: print "[!] Error, unknown mask ?%s in a mask %s" % (char,mask)
 
         return count
