@@ -35,6 +35,11 @@ class MaskGen:
         self.minoccurrence = None
         self.maxoccurrence = None
 
+        self.customcharset1len = None
+        self.customcharset2len = None
+        self.customcharset3len = None
+        self.customcharset4len = None
+
         # PPS (Passwords per Second) Cracking Speed
         self.pps = 1000000000
         self.showmasks = False
@@ -54,6 +59,10 @@ class MaskGen:
             elif char == "b": count *= 256
             elif char == "h": count *= 16
             elif char == "H": count *= 16
+            elif char == "1" and self.customcharset1len: count *= self.customcharset1len
+            elif char == "2" and self.customcharset2len: count *= self.customcharset2len
+            elif char == "3" and self.customcharset3len: count *= self.customcharset3len
+            elif char == "4" and self.customcharset4len: count *= self.customcharset4len
             else: print "[!] Error, unknown mask ?%s in a mask %s" % (char,mask)
 
         return count
@@ -204,6 +213,13 @@ if __name__ == "__main__":
 
     parser.add_option("--showmasks", dest="showmasks",help="Show matching masks", action="store_true", default=False)
 
+    custom = OptionGroup(parser, "Custom charater set options")
+    custom.add_option("--custom-charset1-len", dest="customcharset1len", type="int", metavar="26",  help="Length of cutom character set 1")
+    custom.add_option("--custom-charset2-len", dest="customcharset2len", type="int", metavar="26",  help="Length of cutom character set 2")
+    custom.add_option("--custom-charset3-len", dest="customcharset3len", type="int", metavar="26",  help="Length of cutom character set 3")
+    custom.add_option("--custom-charset4-len", dest="customcharset4len", type="int", metavar="26",  help="Length of cutom character set 4")
+    parser.add_option_group(custom)
+
     misc = OptionGroup(parser, "Miscellaneous options")
     misc.add_option("--pps", dest="pps",help="Passwords per Second", type="int", metavar="1000000000")
     misc.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Don't show headers.")
@@ -238,6 +254,12 @@ if __name__ == "__main__":
     if options.maxcomplexity: maskgen.maxcomplexity = options.maxcomplexity
     if options.minoccurrence: maskgen.minoccurrence = options.minoccurrence
     if options.maxoccurrence: maskgen.maxoccurrence = options.maxoccurrence
+
+    # Custom
+    if options.customcharset1len: maskgen.customcharset1len = options.customcharset1len
+    if options.customcharset2len: maskgen.customcharset2len = options.customcharset2len
+    if options.customcharset3len: maskgen.customcharset3len = options.customcharset3len
+    if options.customcharset4len: maskgen.customcharset4len = options.customcharset4len
 
     # Misc
     if options.pps: maskgen.pps = options.pps
